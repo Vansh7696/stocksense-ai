@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stocksense-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stocksense_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD environment variable is required}
+      POSTGRES_DB: ${POSTGRES_DB:-stocksense_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stocksense_user} -d ${POSTGRES_DB:-stocksense_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: stocksense-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stocksense-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 5001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-stocksense_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-stocksense_db}?schema=public
+      REDIS_URL: redis://redis:6379
+      ML_SERVICE_URL: http://ml-service:8000
+      JWT_SECRET: ${JWT_SECRET:?Error: JWT_SECRET environment variable is required (minimum 32 characters)}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?Error: APP_ENCRYPTION_KEY environment variable is required (64-character hex)}
+      CSRF_SECRET: ${CSRF_SECRET:-}
+      CORS_ORIGIN: http://localhost:5173
+      UPSTOX_API_KEY: ${UPSTOX_API_KEY}
+      UPSTOX_API_SECRET: ${UPSTOX_API_SECRET}
+      UPSTOX_REDIRECT_URI: ${UPSTOX_REDIRECT_URI}
+      UPSTOX_ACCESS_TOKEN: ${UPSTOX_ACCESS_TOKEN}
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: stocksense-ml-service
+    restart: unless-stopped
+    environment:
+      PORT: 8000
+      ENV: development
+      BACKEND_SERVICE_URL: http://backend:5001
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ml-service:/app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: stocksense-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_BASE_URL: http://localhost:5001/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,427 @@
+# StockSense AI — Phase Progress Tracker
+
+## Phase 1: Foundation and Market Dashboard
+
+| Milestone | Status | Description |
+|-----------|--------|-------------|
+| **Milestone 1: Project Initialization** | ✅ Verified | Monorepo setup, configuration files, Docker Compose, doc specifications, service skeletons, all tests passing. |
+| **Milestone 2: Database Schema & Migrations** | ✅ Verified | PostgreSQL 16 & Redis 7 live in Docker, Prisma 6 migrations applied, verified NSE/BSE & blue-chip seed data inserted, all 9 backend integration tests passing (100% pass). |
+| **Milestone 3: Real Market Data Integration (Upstox API V3)** | ✅ Verified | Steps 1–7 complete: Official Upstox V3 adapter, AES-256-GCM token encryption, distributed sliding-window rate limiting (Redis Lua), full-jitter backoff, historical OHLCV, quotes, pre-ingestion data quality validation, OAuth 2.0 auth lifecycle with atomic CSRF state, official instrument master ingestion pipeline (NSE/BSE, compressed .json.gz, batch upsert, idempotency, audit logs), Express REST APIs with Redis caching, and historical OHLCV market data ingestion pipeline. |
+| **Milestone 4: User Authentication, Session Revocation & Persistent Watchlists** | ✅ Verified | Phases 4A–4D complete: Multi-tenant auth engine, Argon2id hashing, one-time refresh token rotation & replay detection, signed double-submit CSRF, PostgreSQL-backed sessions, persistent watchlists with default protection, guest-to-cloud sync, price alert CRUD, frontend AuthContext/WatchlistContext, and full-system E2E test suite. |
+| **Milestone 5: Market Intelligence Pipeline & ML Predictions** | 🟡 In Progress | Phase 5A & 5B complete: 5-stock 3-year historical dataset (3,715 candles), 10 technical indicators, 23 scale-invariant ML features, zero look-ahead bias causality validation, Redis caching (300s TTL), full test coverage (pytest 29/29, backend 39/39, frontend 41/41). Phase 5C ready for model training. |
+
+---
+
+## Detailed Milestone Log
+
+### Milestone 1: Project Initialization
+- [x] Workspace inspected (clean repository, initialized git).
+- [x] Monorepo architecture designed.
+- [x] Root `.gitignore`, `.env.example`, `docker-compose.yml`, and `README.md` configured.
+- [x] Architectural documentation generated in `docs/`.
+- [x] Backend package configuration, Express app, Prisma 6 client generated, and health routes defined.
+- [x] Backend test suite executed (`backend/tests/health.test.js` - 4 passed, 0 failed).
+- [x] FastAPI microservice skeleton and health endpoint created (`ml-service/tests/test_health.py` - 2 passed, 0 failed).
+- [x] Frontend package configuration, Tailwind theme, and React 18 UI skeleton setup.
+- [x] Frontend Vite production build verified (`npm run build` - 1,644 modules transformed, 0 errors).
+- [x] Exhaustive 15-point audit completed and approved.
+
+### Milestone 2: Database Schema & Migrations
+- [x] Container infrastructure live: PostgreSQL 16 (port 5432) and Redis 7 (port 6379) running in Docker and verified healthy.
+- [x] Initial migration applied via Prisma (`20261107000000_init/migration.sql`).
+- [x] Second migration applied (`20261107000001_market_data_upgrade/migration.sql`): `historical_prices` prices altered to `DECIMAL(14, 4)`, `system_configs` table created.
+- [x] Third migration applied (`20261107000002_system_config_timestamptz/migration.sql`): `system_configs.updatedAt` altered to `TIMESTAMPTZ(3)`.
+- [x] `npx prisma migrate status` reports `Database schema is up to date!`.
+- [x] Database seeder executed: 2 exchanges (NSE, BSE) and 7 verified stock instruments (Reliance, TCS, Infosys, HDFC Bank, ICICI Bank) populated with authentic Indian ISINs and zero fabricated prices/volumes.
+- [x] All 9 backend integration tests passing with live PostgreSQL and Redis.
+
+### Milestone 3: Real Market Data Integration (Upstox API V3)
+- [x] **Architecture Approved**:
+  - Official Upstox V3 endpoints:
+    - Historical: `/v3/historical-candle/{instrumentKey}/{unit}/{interval}/{to_date}/{from_date}`
+    - Intraday: `/v3/historical-candle/intraday/{instrumentKey}/{unit}/{interval}`
+  - Official plural units (`minutes`, `hours`, `days`, `weeks`, `months`).
+  - Official retrieval limits (1–15m: 1 month; >15m & 1h: 1 quarter; 1D: 1 decade; 1W/1M: no stated limit).
+  - PostgreSQL `TIMESTAMPTZ` documentation and UTC normalization analysis.
+  - Atomic Redis Lua sliding-window distributed rate limiter design.
+  - Full-jitter retry formula: `delay = random(0, min(baseDelay * 2^attempt, maxDelay))` with `baseDelay=1000ms`, `maxDelay=10000ms`, and `Retry-After` support.
+- [x] **Step 1: Security & Cryptography Module (Audited & Verified)**:
+  - Implemented `backend/src/utils/crypto.js` and `backend/tests/crypto.test.js` (23 passing tests).
+  - Enforced strict 64-hex key validation, AES-256-GCM encryption with fresh IV on every call, authentication tag verification, and secret redaction.
+- [x] **Step 2: Distributed Sliding-Window Rate Limiter & Token Manager (Audited & Verified)**:
+  - Implemented `backend/src/utils/rateLimiter.js`:
+    - Atomic Multi-Window Redis Lua script (`ATOMIC_MULTI_WINDOW_LUA`) using Sorted Sets (`ZREMRANGEBYSCORE`, `ZCARD`, `ZADD`, `PEXPIRE`). Evaluates 30-min, 1-min, and 1-sec windows simultaneously; if any window is blocked, zero quota is consumed from any window.
+    - Configurable shared per-second limits (historical 5 req/s, quote 8 req/s).
+    - Configurable shared sliding-window limits (250 req/min, 1,000 req/30min).
+    - Distributed multi-window coordination (`acquireProviderPermit`).
+    - Distributed safety default: `fail_closed` policy rejects requests with HTTP 503 (`RATE_LIMITER_OFFLINE`) when Redis is unavailable, preventing independent worker processes from overwhelming broker APIs.
+    - Full-jitter backoff engine: $\text{delay} = \text{random}(0, \min(1000 \times 2^{\text{attempt}}, 10000\text{ ms}))$.
+    - Standard `Retry-After` header parsing (integer seconds and HTTP date strings).
+    - Standardized `PROVIDER_RATE_LIMITED` (`AppError`, status 429) error upon retry exhaustion; non-429 errors rethrown immediately.
+  - Implemented `backend/src/services/token.service.js`:
+    - Encrypts tokens with AES-256-GCM and persists in PostgreSQL `system_configs`.
+    - Caches encrypted payload in Redis with TTL strictly bounded by `expiresAt`.
+    - Daily 03:30 AM IST boundary detection supporting deterministic clock injection; returns `REAUTHORIZATION_REQUIRED` when expired, missing, corrupted, or tampered with.
+    - Safe handling for missing keys, corrupted JSON, and tampered ciphertext.
+    - Plaintext tokens, IVs, auth tags, and encryption credentials are never exposed or logged.
+  - Implemented comprehensive test suites (Total: 60 passing tests across Step 1 and Step 2):
+    - `backend/tests/crypto.test.js` (23 passing tests).
+    - `backend/tests/rateLimiter.test.js` (15 passing tests, including multi-instance concurrency, sliding window boundary transitions, atomic multi-window quota isolation, inverse quota isolation, fail_closed offline safety, and jitter engine).
+    - `backend/tests/token.test.js` (13 passing tests, including encryption persistence, TTL bounding, deterministic 03:30 AM boundary checks, and tampered token rejection).
+    - `backend/tests/database.test.js` (5 passing tests).
+    - `backend/tests/health.test.js` (4 passing tests).
+- [x] **Step 3: Upstox API V3 Provider Adapter & Data Quality Validation (Audited & Verified)**:
+  - Provider Abstraction Layer:
+    - `backend/src/providers/MarketDataProvider.js`: Abstract base provider contract defining standard interfaces for historical candles, intraday candles, quotes, LTP, health, and instrument resolution.
+    - `backend/src/providers/index.js`: Primary provider export with singleton `marketDataProvider` instance.
+  - Upstox API V3 Implementation (`backend/src/providers/upstox/`):
+    - `upstox.constants.js`: Official V3 historical and intraday candle URLs, official V3 LTP endpoint (`https://api.upstox.com/v3/market-quote/ltp`), V2 quote endpoint, plural resolution units (`minutes`, `hours`, `days`, `weeks`, `months`), and chunk limits (1m-15m: 30d, 30m/1h: 90d, 1D: 365d, 1W: 730d, 1M: 1825d). Deprecated `/v2/market-quote/ltp` has been removed.
+    - `upstox.mapper.js`: Verified seed instrument metadata mapping (`VERIFIED_INSTRUMENTS_METADATA` for RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, 500325, 532540), URL-safe instrument key encoding (`|` -> `%7C`), quote normalization, and V3 LTP transformation (`last_price`, `instrument_token`, `ltq`, `volume`, `cp`). Returns `null` for unverified instruments rather than assuming ISIN prefixing.
+    - `upstox.client.js`: Authenticated HTTP client with token manager integration, distributed rate-limit permit acquisition before every outbound request, full-jitter exponential backoff on HTTP 429, Retry-After header support, non-retryable error abort, and secret redaction.
+    - `UpstoxProvider.js`: Concrete provider handling date chunking via strict UTC calendar arithmetic, sequential chunk retrieval, V3 URL construction, and operational health reporting.
+  - Pre-Ingestion Market Data Quality Validator:
+    - `backend/src/services/marketDataValidator.service.js`: Enforces strict OHLC logic (`High >= Low`, `High >= Open`, `High >= Close`, `Low <= Open`, `Low <= Close`), positive prices (`> 0`), non-negative volume (`>= 0`) with BigInt precision without silent precision loss, future timestamp prevention (5-min buffer), duplicate timestamp detection across multi-chunk ranges, chronological ordering, and decimal-safe formatting without floating-point artifacts. Never silently repairs corrupted bars; clearly distinguishes valid from rejected records.
+    - Explicit BigInt Serialization Architecture:
+      - Strictly prohibited global prototype modification: `BigInt.prototype.toJSON` removed across all entrypoints and modules (`BigInt.prototype.toJSON === undefined`).
+      - Preserved native `BigInt` for all Prisma database operations (`historical_prices.volume`).
+      - Configured Express JSON serialization using `app.set('json replacer', bigIntJsonReplacer)` (`backend/src/utils/json.js`) to serialize BigInt into exact decimal strings on API boundaries.
+      - Retained `serializeMarketData()` for recursive in-memory market payload normalization.
+      - Provided `safeJsonStringify()` for explicit, safe JSON formatting without prototype pollution.
+  - Step 3 Test Suites (57 new tests):
+    - `backend/tests/marketDataValidator.test.js` (29 passing tests, covering precision audit, rejection of excess decimal places, integer overflow, prototype preservation verification, exact BigInt decimal serialization, and Express API JSON replacer verification).
+    - `backend/tests/upstoxProvider.test.js` (28 passing tests).
+  - Total test suite status: **All 117 backend tests passing** (`npm test`, duration: ~1.2s, 28 test suites).
+- [x] **Step 4: Upstox OAuth 2.0 Auth Module & Token Lifecycle (Audited & Verified)**:
+  - Architecture & Services:
+    - `backend/src/services/oauth/oauthState.service.js`: Cryptographically secure 64-hex random state generation (32 bytes entropy), SHA-256 hash storage in Redis (300s TTL), and atomic single-use state consumption via Redis Lua script (`ATOMIC_CONSUME_STATE_LUA`). Fail-closed safety: Redis is mandatory in production (`NODE_ENV === 'production'`); fails closed with HTTP 503 (`REDIS_OFFLINE`) on Redis outage; in-memory fallback is strictly restricted to isolated unit tests.
+    - `backend/src/services/oauth/upstoxOAuth.service.js`: Official Upstox dialog URL generation, form-urlencoded token exchange (`POST https://api.upstox.com/v2/login/authorization/token`), strict single-use code guarantee (no automatic retries), AES-256-GCM token encryption via `TokenService`, timeout handling (8000ms), and strict environment validation rejecting mock credentials outside test environments (`OAUTH_CONFIG_ERROR`).
+    - `backend/src/controllers/upstoxOAuth.controller.js`: Clean separation of concerns for authorization initiation (`start`), callback handling (`callback`), safe status reporting (`status`), and session disconnect (`disconnect`). Enforces clean browser redirects to `${config.corsOrigin}/settings?auth=success` with zero codes or tokens in the destination URL.
+    - `backend/src/routes/upstoxOAuth.routes.js`: Express router mounted at `/api/auth/upstox`, with `oauthSecurityHeadersMiddleware` applying anti-caching headers (`Cache-Control: no-store, no-cache, must-revalidate, private`, `Pragma: no-cache`, `Expires: 0`, `Referrer-Policy: no-referrer`) across ALL five OAuth endpoints (`GET /start`, `GET /login`, `GET /callback`, `GET /status`, `POST /disconnect`). Protected disconnect endpoint via `requireAuth` middleware (`backend/src/middleware/auth.js`) validating standard RFC 6750 JWT Bearer tokens against `config.jwt.secret` with explicit algorithm restriction (`algorithms: ['HS256']`). Rejects unauthenticated/forged/expired/algorithm-mismatched requests with HTTP 401; zero credential/token leakage.
+    - `DistributedOAuthRateLimiter`: Shared atomic Redis Lua rate limiting (`ATOMIC_OAUTH_RATE_LIMIT_LUA`, 10 req/min per IP) enforced across all backend instances with fail-closed safety (HTTP 503 `RATE_LIMITER_OFFLINE`) and safe client IP resolution (`getSafeClientIp`) ignoring arbitrary spoofed `X-Forwarded-For` headers when `trust proxy` is disabled and normalizing loopback addresses.
+    - `backend/src/config/index.js` JWT Hardening: Implemented `validateJwtSecret()`. Enforces that in production (`NODE_ENV === 'production'`), startup fails safely with fatal error if `JWT_SECRET` is missing, matches known insecure placeholders, or is shorter than 32 characters.
+    - `backend/src/middleware/errorHandler.js`: Query-string and token redaction (`redactString`) applied to `req.originalUrl`, `err.message`, `err.stack`, and `details`, ensuring authorization codes, states, and bare/bearer JWTs never leak into server logs or API error response payloads (`meta.path`).
+  - Step 4 Test Suites (`backend/tests/upstoxOAuth.test.js` & `backend/tests/jwtAuth.test.js` - 57 passing tests across 10 sub-suites):
+    - Suite 1: State generation, SHA-256 storage, 300s TTL, expiration, mismatch, replay protection, atomic Lua consumption, and fail-closed behavior during Redis outages (HTTP 503 `REDIS_OFFLINE`).
+    - Suite 2: Official authorization dialog URL construction, form-urlencoded payload formatting, required headers, rejection of mock credentials outside tests, single HTTP attempt guarantee on failure, network timeout mapping to HTTP 504 `OAUTH_TIMEOUT`, encrypted token persistence in PostgreSQL `system_configs`, and fail-safe handling (`TOKEN_STORAGE_ERROR`).
+    - Suite 3: Express endpoints (`/start`, `/login`, `/callback`, `/status`, `/disconnect`), safe status metadata without exposing raw tokens or ciphertext, protected disconnect requiring valid JWT Bearer token (rejecting unauthenticated requests with 401 `UNAUTHORIZED` without clearing tokens, rejecting forged tokens with 401 `INVALID_TOKEN`, and allowing authorized requests with 200 without exposing sensitive data), and rate-limiting (HTTP 429).
+    - Suite 4: Distributed rate limiting across independent limiter instances sharing Redis, fail-closed handling on Redis outage (HTTP 503 `RATE_LIMITER_OFFLINE`), safe client IP extraction normalizing IPv6 loopback addresses and ignoring spoofed `X-Forwarded-For` headers, and strict prohibition of in-memory OAuth state fallback in production.
+    - Suite 5: Strict anti-caching and privacy headers across ALL five OAuth endpoints (`GET /start`, `GET /login`, `GET /callback`, `GET /status`, `POST /disconnect`), clean browser redirects to frontend settings without codes or tokens, query parameter sanitization in error responses (`meta.path` redaction), clean provider error redirects, and verification that no diagnostic/debug routes are exposed (404).
+    - Suite 6: Production JWT configuration safety (`validateJwtSecret` fatal error on missing, empty, placeholder, or <32 char secrets; safe dev fallback in non-production).
+    - Suite 7: Strict HS256 algorithm restriction (accepting HS256, rejecting HS384/HS512, rejecting alg 'none', rejecting signature tampering, rejecting incorrect keys).
+    - Suite 8: Token lifecycle and expiration (rejecting expired tokens with 401 `INVALID_TOKEN`, rejecting malformed tokens).
+    - Suite 9: JWT redaction in logs (scrubbing bare JWTs and Authorization Bearer headers via `redactString`).
+    - Suite 10: End-to-end protected disconnect integration verifying that unapproved algorithms (HS512) cannot disconnect session and valid HS256 disconnects cleanly.
+  - Total test suite status: **All 174 backend tests passing** (`npm test`, duration: ~1.8s, 40 test suites).
+- [x] **Step 5: Instrument Master Ingestion (Audited & Verified)**:
+  - Architecture & Services:
+    - `backend/prisma/migrations/20261107000003_instrument_master_fields`: Applied migration adding `exchangeToken`, `expiryDate`, `instrumentType`, `lotSize`, `segment`, and `tickSize` to `Stock` model; made `instrumentToken` unique (`@unique`); updated compound index to `@@unique([exchangeId, symbol, segment])`.
+    - `backend/src/services/instruments/instrumentDownloader.js`: Downloads official compressed master archive (`https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz`), handles streaming/buffer conversion, and employs 3-retry exponential backoff with full jitter.
+    - `backend/src/services/instruments/instrumentParser.js`: Gunzips `.json.gz` archives and parses JSON. Fails safely on corrupt archives (`CORRUPT_ARCHIVE`), empty files (`EMPTY_DATA`), or non-array formats (`INVALID_FORMAT`).
+    - `backend/src/services/instruments/instrumentValidator.js`: Distinguishes `EQUITY`, `INDEX`, `FUTURES`, `OPTIONS`, `BOND` instrument types; enforces strict 12-character ISIN validation; prevents ISIN and Instrument Key interchangeability; preserves exchange tokens; accurately separates `validInScope`, `validOutOfScope` (derivatives/commodities), and `invalidRecords` (genuinely malformed).
+    - `backend/src/services/instruments/instrumentPersistence.js`: Memory-safe batch upsert into PostgreSQL in chunks of 250 items per transaction. Per-batch transactional safety: failures roll back only the affected batch while committed batches remain in DB. Idempotently updates existing instruments without duplicates, preserves existing valid records on partial errors, and never deactivates or deletes the catalog. Supports `dryRun` mode.
+    - `backend/src/services/instruments/instrumentIngestion.service.js`: Coordinates end-to-end ingestion pipeline with distributed concurrency protection (`stocksense:lock:instrument_ingestion` in Redis) using cryptographically unique lock tokens (`crypto.randomUUID()`) and atomic Lua script compare-and-delete release. Enforces strict fail-closed safety: Redis is mandatory; if Redis is unavailable or disconnected, ingestion fails immediately with HTTP 503 (`INGESTION_LOCK_UNAVAILABLE`) before downloading or modifying records. Silent in-memory lock fallbacks are eliminated. Prevents overlapping jobs (HTTP 409 `INGESTION_ALREADY_IN_PROGRESS`). Logs execution in `DataSourceLog` and persists latest summary in `SystemConfig`.
+    - CLI & Admin API: Provides `npm run ingest:instruments` (with `--all`, `--dry-run`, `--limit=N`) as the primary supported manual ingestion mechanism. Explicitly disabled HTTP admin triggers (`/api/admin/instruments/*`) with HTTP 503 `ADMIN_API_DISABLED` pending full RBAC implementation in Milestone 4.
+    - Test Database Isolation: Configured isolated `TEST_DATABASE_URL` pointing to dedicated `stocksense_test_db`. Implemented `assertTestDatabaseSafety()` in `backend/src/config/prisma.js` preventing automated tests from executing against development (`stocksense_db`) or production databases. Updated `backend/prisma/seed.js` to upsert on `@unique instrumentToken`. Preserved existing development database catalog (19 stocks before and after test suite execution).
+  - Step 5 Test Suite (`backend/tests/instrumentIngestion.test.js` - 37 passing tests across 6 sub-suites):
+    - Suite 1: Downloader (success, retry on network error, exhaustion 502, 404 abort, empty file 502).
+    - Suite 2: Parser (decompression, corrupted archive 422, empty data 422, invalid JSON 422, non-array 422).
+    - Suite 3: Validator (classification across segments, ISIN validation, equity normalization, index normalization, non-NSE/BSE rejection, missing fields rejection, segment whitelist filtering, three-way metric categorization separating in-scope, out-of-scope derivatives, and genuinely invalid records).
+    - Suite 4: Persistence (exchange mapping, batch insertion, idempotency on repeated runs, dry-run simulation, partial batch failure rollback isolation).
+    - Suite 5: Orchestrator & Distributed Lock (end-to-end with fixture data, audit log in `DataSourceLog`, summary in `SystemConfig`, limit filtering verification, Lock Test 1 concurrent rejection 409 with mocked persistence, Lock Test 2 TTL expiration, Lock Test 3 Lua token mismatch protection against older process deleting newer lock, Lock Test 4 Redis fail-closed rejection 503 preventing download and DB writes, Lock Test 4b null/disconnected Redis rejection 503, Lock Test 5 lock release in finally on error, PARTIAL status on batch failure, catalog preservation on download failure).
+    - Suite 6: Admin API (503 ADMIN_API_DISABLED for unauthenticated, 503 for authenticated JWT, 503 for status route, anti-caching headers).
+  - Total test suite status: **All 212 backend tests passing** (`npm test`, duration: ~2.8s, 47 test suites).
+- [x] **Step 6: Express REST Endpoints & Redis Caching (Audited & Verified)**:
+  - Architecture & Services:
+    - `backend/src/services/cache.service.js`: Reusable Redis caching service with standardized prefix `stocksense:cache`, TTL policies (`STOCKS_LIST: 300s`, `STOCK_DETAIL: 600s`, `STOCK_SEARCH: 120s`, `MARKET_OVERVIEW: 30s`, `MARKET_INDICES: 300s`, `STOCK_PRICES: 300s`), `buildDeterministicQueryString()` parameter normalization, non-blocking Redis `scan` cursor pattern invalidation (`invalidatePattern`), and fail-open graceful degradation on Redis disconnection/errors.
+    - Automated Cache Invalidation: Integrated `cacheService.invalidateStockCatalogueCache()` into `InstrumentIngestionService` upon successful and partial ingestion runs, purging all stock and market caches immediately.
+    - `backend/src/controllers/stock.controller.js`:
+      - `resolveStockIdentifier`: Multi-identifier resolution engine handling duplicate symbols across NSE and BSE. UUID lookup returns exact record; Upstox instrument key (`|`) returns exact record. If a symbol is ambiguous across exchanges/segments, requires `?exchange=NSE|BSE` or fails safely with HTTP 409 `AMBIGUOUS_STOCK_IDENTIFIER`, returning safe matching candidate identifiers in `error.details.matches`.
+      - `getStocks`: Paginated stock list with deterministic sorting (secondary `id: 'asc'` tie-breaker), search (`search`/`q`), filter validations (`exchange` 400 `INVALID_EXCHANGE`, `instrumentType` 400 `INVALID_INSTRUMENT_TYPE`, `isActive` 400 `INVALID_FILTER_IS_ACTIVE`), and pagination metadata.
+      - `searchStocks`: High-performance typeahead search (symbol/company name prefix, deterministic secondary tie-breaker, query length validation 1–50 characters, capped limit max 25).
+      - `getStockById`: Multi-identifier lookup supporting optional `?exchange=` query parameter to disambiguate identical symbols, returning 404 `STOCK_NOT_FOUND` or 409 `AMBIGUOUS_STOCK_IDENTIFIER`. Incorporates exchange parameter into cache key to prevent cross-exchange cache collision.
+      - `getStockPrices`: Chronological historical OHLCV candle query with interval validation (`1m`, `5m`, `15m`, `30m`, `1h`, `1D`, `1W`, `1M`), date range filtering (`from`, `to`, `INVALID_DATE_RANGE` validation), deterministic secondary tie-breaker (`id: 'asc'`), disambiguated stock resolution, BigInt volume exact decimal string formatting via `formatCandleRecord`, and empty candle list handling (`candles: []`).
+    - `backend/src/controllers/market.controller.js`:
+      - `getMarketOverview`: Real platform summary without fabricated live prices. Queries active instrument counts, exchange distribution (NSE/BSE), instrument type distribution (EQUITY/INDEX/BOND), Upstox provider status from `tokenService.getTokenStatus()`, and latest ingestion summary from `SystemConfig` / `DataSourceLog`.
+      - `getMarketIndices`: Verified database-stored indices (`NIFTY 50`, `SENSEX`) with exchange metadata; zero price fabrication.
+    - `backend/src/routes/stock.routes.js` & `backend/src/routes/market.routes.js`: Mounted at `/api/stocks` and `/api/market` in `backend/src/app.js`. Ordered `/search` before `/:id` to eliminate route shadowing.
+    - `frontend/src/services/api.js`: Exported typed client helper methods (`getStocks`, `searchStocks`, `getStockById` with optional exchange param, `getStockPrices`, `getMarketOverview`, `getMarketIndices`) while maintaining default Axios export compatibility.
+  - Step 6 Test Suite (`backend/tests/stockApi.test.js` - 36 passing tests across 7 sub-suites):
+    - Suite 1: `GET /api/stocks` (pagination envelope, NSE vs BSE filter, EQUITY vs INDEX filter, segment filter, active status filter, symbol/company search, deterministic secondary sort tie-breaking, invalid page 400, invalid limit 400, invalid sortBy 400, invalid sortOrder 400, invalid exchange 400, invalid instrumentType 400, invalid isActive 400).
+    - Suite 2: `GET /api/stocks/search` (symbol/name match, limit capping, empty query 400, >50 char query 400, non-matching query empty array).
+    - Suite 3: Duplicate Symbol Disambiguation & Resolution (UUID exact lookup, Upstox instrumentToken exact lookup, ambiguous symbol returning 409 AMBIGUOUS_STOCK_IDENTIFIER with safe matching candidates, symbol + exchange=NSE resolution, symbol + exchange=BSE resolution, invalid exchange 400, unique symbol 200, 404 STOCK_NOT_FOUND).
+    - Suite 4: `GET /api/stocks/:id/prices` (decimal strings, BigInt volume string precision without loss, ambiguous symbol 409 rejection, ambiguous symbol + exchange resolution 200, empty candle array for stocks with no history, 404 for missing stock, invalid interval 400, date filtering, invalid date format 400, from > to 400).
+    - Suite 5: `GET /api/market/overview` (active counts, exchange breakdown, Upstox provider status, ingestion summary, zero fabricated live prices).
+    - Suite 6: `GET /api/market/indices` (database indices retrieval, zero fabricated live prices).
+    - Suite 7: Redis Caching & Invalidation (cold cache miss `meta.cached: false`, warm cache hit `meta.cached: true`, detail cache invalidation on flush, failed queries 404 and 409 are NOT cached in Redis, different filter parameters produce distinct cache keys, equivalent query parameter ordering produces identical cache keys, fail-open graceful degradation when Redis is offline, deterministic query normalization).
+  - Total test suite status: **All 258 backend tests passing** (`npm test`, duration: ~5.6s, 55 test suites). Development database (`stocksense_db`) row count preserved at exactly 19. Test database (`stocksense_test_db`) restored to 7 base seeded stocks. Schema validated, 4 migrations verified up-to-date. Frontend Vite build passing (1.06s). ML service tests passing (2 passed).
+- [x] **Step 7: Historical Market Data Ingestion Pipeline (Audited & Verified)**:
+  - Architecture & Services:
+    - `backend/src/services/historical/historicalPersistence.js`: Memory-safe batch upserting into PostgreSQL via Prisma transaction batches (250 records/chunk). Employs compound unique constraint `@@unique([stockId, timestamp, interval])` to guarantee 100% repeated ingestion idempotency. Preserves native BigInt volume precision and formats prices to exact 4-decimal strings (`DECIMAL(14, 4)`). Never deletes existing valid records on partial batch error. Supports `dryRun` simulation mode.
+    - `backend/src/services/historical/historicalIngestion.service.js`: End-to-end historical market data orchestrator:
+      - Targets initial 5 verified NSE bluechips (`RELIANCE`, `TCS`, `INFY`, `HDFCBANK`, `ICICIBANK`) or custom symbols. Resolves verified instrument tokens from database, never guessing keys or injecting mock prices.
+      - Chunks large date ranges using `UpstoxProvider.chunkDateRange()` based on documented V3 limits (1D daily candles: 365 calendar days). Accurately handles leap-year boundaries (Feb 29, 2024), month transitions, and year boundaries with zero date drift, zero missing days, and zero overlaps.
+      - Validates candle bars through `marketDataValidatorService` (strict OHLC relational logic, positive prices, DECIMAL(14, 4), non-negative BigInt volumes, chronological sort).
+      - Concurrency, Heartbeat & Lock-Loss Detection: Distributed Redis lock (`stocksense:lock:historical_ingestion`) using cryptographic UUID tokens and atomic Lua compare-and-delete release. Enforces fail-closed security (HTTP 503 `INGESTION_LOCK_UNAVAILABLE` on Redis outage). Includes background lock renewal heartbeat (`_startHeartbeat`, `_stopHeartbeat`) using atomic Lua compare-and-expire (`_renewLock`). Implemented active lock-loss detection (`_assertLockHeld`): if Worker A loses its lock (due to renewal failure, expiration, or acquisition by Worker B), Worker A halts processing immediately with an explicit `INGESTION_LOCK_LOST` error, aborts further provider requests (`beforeChunk` in `UpstoxProvider`), blocks subsequent database batch persistence (`beforeBatch` in `HistoricalPersistence`), leaves Worker B's lock completely untouched in Redis (atomic Lua release token check), and cleans up background heartbeat timers across all success and error paths.
+      - Rigorous Failure Classification: If 0 candles are fetched because broker authentication fails or all chunks fail, the run status and `DataSourceLog` status are strictly `FAILED` (never `PARTIAL`). `PARTIAL` status is strictly reserved for runs where some valid records were successfully persisted while other chunks/stocks experienced failures.
+      - Asia/Kolkata Timezone & Future Date Prevention: All date boundaries default to `Asia/Kolkata` (UTC+05:30) via `getKolkataDateString()`, defaulting to the past 365 days up to today in `Asia/Kolkata`. Prohibits future trading dates with HTTP 400 `INVALID_DATE_FUTURE`.
+      - Targeted cache invalidation: selectively flushes only the affected stock's historical price cache (`stocksense:cache:stocks:prices:${stockId}:*`), leaving catalogue, detail, and market overview caches intact.
+      - Audit tracking: records execution status (`SUCCESS`, `PARTIAL`, `FAILED`), processed counts, execution time, and error categories in `DataSourceLog` (`operation: 'SYNC_OHLCV'`). Stores latest summary in `SystemConfig` (`UPSTOX_HISTORICAL_INGESTION_SUMMARY`).
+    - `backend/scripts/ingestHistorical.js`: Developer-friendly CLI script (`npm run ingest:historical`) with options `--symbol=SYM`, `--symbols=S1,S2`, `--all`, `--from=YYYY-MM-DD`, `--to=YYYY-MM-DD`, `--interval=1D`, `--dry-run`, and `--help`. Clearly distinguishes database simulation from live writes; verifies active Upstox access token prior to execution (both live and dry-run); never claims success on authentication failure; exits with code 1 and actionable CLI guidance when credentials are missing.
+  - Step 7 Test Suite (`backend/tests/historicalIngestion.test.js` - 35 passing tests across 5 sub-suites):
+    - Suite 1: Date Range Chunking & Boundary Transitions (3-year range into 365-day chunks, leap year 2024 Feb 29 boundary, month-end transition, year-boundary transition, fromDate > toDate error, invalid date format validation, rejection of future dates with `INVALID_DATE_FUTURE`, default date range calculation in `Asia/Kolkata`, single-day inclusive chunking).
+    - Suite 2: Candle Validation & BigInt Volume (OHLC conversion to DECIMAL(14, 4), large BigInt volume preservation without precision loss, inverted High < Low rejection, negative volume rejection, excess decimal precision rejection, chronological sorting and duplicate rejection in batch).
+    - Suite 3: Database Persistence & Idempotency (dryRun simulation mode, native BigInt volume storage, repeated ingestion idempotency updating existing and inserting 0 duplicates, intra-batch duplicate deduplication).
+    - Suite 4: End-to-End Orchestration & Failure Classification (full mock ingestion workflow, DataSourceLog audit entry verification, targeted price cache invalidation, SystemConfig summary persistence, partial API failure handling with PARTIAL status, unresolvable stock rejection, 0 candles fetched classified strictly as FAILED, dryRun failure upon authentication error, multi-stock partial success handling).
+    - Suite 5: Distributed Lock, Heartbeat & Lock-Loss Safety (concurrent job blocking 409 `INGESTION_ALREADY_IN_PROGRESS`, Redis outage fail-closed 503 `INGESTION_LOCK_UNAVAILABLE`, lock release in finally on error, Lua compare-and-delete token mismatch protection against older process deleting newer lock, atomic Lua renewal extending TTL when token matches, Lua renewal rejecting mismatched tokens, background heartbeat lifecycle and cleanup, simulated lock loss halting ingestion with `INGESTION_LOCK_LOST` while preserving Worker B's lock, halting subsequent batch writes in `persistBatch`, heartbeat stopped in all execution paths).
+  - Total test suite status: **All 293 backend tests passing** (`npm test`, duration: ~8.7s, 61 test suites). Development database (`stocksense_db`) row count preserved at exactly 19 stocks and 0 mock candles. Test database (`stocksense_test_db`) cleanly restored to 7 base seeded stocks. Schema validated, 4 migrations up to date. Frontend Vite build passing (1.74s). ML service tests passing (2 passed).
+
+---
+
+### Frontend Phase 1: Professional UI Development & Financial Analytics Interface
+
+- [x] **Step A: Design System & Reusable Components**:
+  - Implemented cohesive dark fintech theme via Tailwind CSS (`#050811` background, `#090D16` surface, `#0F172A` cards, subtle borders `#1E293B`, vibrant emerald/rose delta accents, and blue/indigo highlights).
+  - Reusable UI component library (`frontend/src/components/ui/`):
+    - `Button.jsx`: Variants (`primary`, `secondary`, `outline`, `ghost`, `danger`) with size controls and loading states.
+    - `Card.jsx`: Glassmorphism depth, subtle hover states, responsive padding.
+    - `Badge.jsx`: Color variants (`success`, `danger`, `warning`, `info`, `purple`, `neutral`) with pulsing status dots.
+    - `Input.jsx`: Monospace typography, leading/trailing icon slots, clear button support.
+    - `Skeleton.jsx`: Shimmer skeleton primitives (`Skeleton`, `StatCardSkeleton`, `IndexCardSkeleton`, `TableRowSkeleton`).
+    - `EmptyState.jsx` & `ErrorState.jsx`: Production-grade zero-data states and error retry banners.
+  - Layout Architecture:
+    - `Header.jsx`: Live IST session badge (`Asia/Kolkata`), Upstox API connectivity indicator, mobile navigation toggle, debounced search (`Cmd+K` / `Ctrl+K`), and direct stock navigation.
+    - `Sidebar.jsx`: Collapsible navigation with active route highlights (`NavLink`), platform branding, and mobile drawer transitions.
+
+- [x] **Step B: Market Dashboard**:
+  - `DashboardPage.jsx`:
+    - Summary statistic cards (Total Listed Equities, Active Listings, Verified Exchanges, Upstox Provider Health).
+    - Verified Indian Market Indices carousel (NIFTY 50, SENSEX, NIFTY BANK, NIFTY IT).
+    - Quick Blue-Chip Watchlist with local storage synchronization and interactive bookmark toggles.
+    - Recently viewed stocks ticker.
+    - Upstox API connectivity and last ingestion status banner.
+    - Real-time Indian Market Hours banner with pre-market, regular session, weekend, and holiday indicators.
+    - Zero fabricated prices or synthetic percentage changes.
+
+- [x] **Step C: Stock Explorer**:
+  - `StockExplorerPage.jsx`:
+    - 300ms debounced symbol and company name search with instant clear action.
+    - Whitelisted exchange filter pills (`ALL`, `NSE`, `BSE`).
+    - Instrument type dropdown (`ALL`, `EQUITY`, `INDEX`, `FUTURES`, `OPTIONS`, `BOND`).
+    - Listing status dropdown (`All Listing Statuses`, `Active Listing`, `Inactive Listing`).
+    - Page density selector (`10`, `20`, `50` rows per page).
+    - Server-side sorting for `symbol` and `companyName` with directional indicators.
+    - Bidirectional URL query parameter synchronization (`useSearchParams`) enabling bookmarkable URLs and browser back/forward navigation.
+    - Action column with watchlist bookmarking and click-through navigation to stock detail.
+    - Table column header and body updated to explicitly display **Listing Status** (`ACTIVE LISTING` / `INACTIVE LISTING`), keeping exchange listing qualifications distinct from live market trading hours.
+
+- [x] **Step D: Stock Detail Page & TradingView Candlestick Analysis**:
+  - `StockDetailPage.jsx` & `CandlestickChart.jsx`:
+    - Dynamic route at `/stocks/:id` supporting UUID, Upstox instrument token (`NSE_EQ|...`), and symbol lookups with `?exchange=` query parameter.
+    - Ambiguous Symbol Resolution (HTTP 409): Catches `AMBIGUOUS_STOCK_IDENTIFIER` and renders an interactive exchange selector for symbols listed on multiple venues.
+    - Not Found Handling (HTTP 404): Catches `STOCK_NOT_FOUND` and provides clean navigation back to Stock Explorer.
+    - Interactive TradingView Lightweight Charts (`lightweight-charts@4.2.3`):
+      - Candlestick price series (emerald green bullish, rose red bearish).
+      - Overlay volume histogram in bottom 20% with matching direction coloration.
+      - Responsive resizing via `ResizeObserver` on container dimensions.
+      - Ascending integer Unix timestamp sanitization and duplicate timestamp deduplication, preventing monotonic time scale assertion failures.
+      - Interactive OHLCV legend bar tracking cursor position via `subscribeCrosshairMove` with automatic fallback to latest candle on leave.
+      - Decimal and BigInt precision parsing (`parseFloat` with Indian Rupee formatting).
+      - Timeframe switcher: standard (`1D`, `1W`, `1M`) and intraday (`1h`, `30m`, `15m`, `5m`, `1m`).
+      - Informative empty state when no historical candles exist for a stock or interval.
+      - Institutional identifiers grid (Upstox token, exchange token, lot size, tick size, sector, industry).
+      - Prominent disclaimer clarifying historical OHLCV data vs real-time quotes.
+
+- [x] **Final Integration & Quality Audit**:
+  - Implemented `NotFoundPage.jsx` mounted on catch-all route `*` for explicit 404 handling with back-navigation and dashboard links.
+  - Connected Header search typeahead directly to Stock Detail route.
+  - Implemented official Indian equity trading holidays (`INDIAN_EXCHANGE_HOLIDAYS`) for 2025 and 2026 in `marketHours.js`.
+  - Added self-healing recovery to `watchlist.js` for corrupted or non-array JSON in LocalStorage.
+  - Fixed crosshair listener closure in `CandlestickChart.jsx` via `latestCandleRef` to ensure hover reset always reflects the latest candle.
+  - Ensured immediate state reset on stock route change in `StockDetailPage.jsx` to eliminate lingering state transitions.
+  - Verified 100% test pass across all services:
+    - Frontend unit tests (`npm test --prefix frontend`): **21 / 21 tests passing** across 8 test suites.
+    - Frontend production bundle (`npm run build --prefix frontend`): **1,664 modules transformed in 2.19s, 0 errors**.
+    - Backend regression tests (`npm test --prefix backend`): **293 / 293 tests passing** across 61 test suites (100% pass).
+    - ML service tests (`pytest ml-service/tests`): **2 / 2 tests passing**.
+    - Preserved database counts: `stocksense_db` at 19 stocks, 0 mock candles; `stocksense_test_db` at 7 seeded stocks, 0 mock candles.
+
+### Milestone 4: User Authentication, Session Management, Persistent Watchlists & Price Alerts
+- [x] **Phase 4A: Backend Authentication Engine, Session Revocation & Security**:
+  - Prisma Schema Migrations:
+    - Added `UserSession` (revocation, idle/absolute expiry, IP, user agent) and `UserSessionToken` (family hash ledger, consumption timestamps).
+    - Added `User.lastLoginAt` and `isActive` flag.
+  - Password & Cryptographic Hardening:
+    - Argon2id hashing (`memoryCost: 32768`, `timeCost: 3`, `parallelism: 1`).
+    - Unicode NFC normalization, 15–128 code point length policy, 512-byte limit, breached-password blocklist checks, and dummy comparison on non-existent users.
+    - Concurrency semaphore (`AUTH_MAX_CONCURRENT_HASHES: 4`) preventing memory exhaustion attacks.
+  - Session Lifecycle & Replay Detection:
+    - One-time atomic refresh-token rotation using PostgreSQL `clock_timestamp()` and parameterized SQL.
+    - Replay revocation: reusing any previously consumed token immediately revokes the entire session family and clears auth cookies.
+    - Revocation verification via Redis (`stocksense:session:revoked:<sessionId>`) with direct fallback to PostgreSQL `UserSession` and `User` status on Redis outages.
+  - Cookie & CSRF Security:
+    - Signed double-submit CSRF cookie (`stocksense_csrf_token`) with HMAC-SHA256 signature and constant-time verification.
+    - Strict Origin/Referer header validation against whitelisted domains (`getWhitelistedOrigins()`).
+    - Dynamic cookie options (`SameSite=Lax` / `None`, `Secure`, `HttpOnly`, `Path=/`).
+  - Upstox OAuth 2.0 preservation: Maintained existing broker token encryption and OAuth lifecycle.
+- [x] **Phase 4B: Persistent Watchlists & User Stock Alerts**:
+  - Relational Models & Migrations:
+    - `Watchlist` and `WatchlistStock` models with cascade deletion on user removal.
+    - PostgreSQL partial unique index `unique_user_default_watchlist` on `(userId) WHERE isDefault = true`.
+    - Protected default watchlist: users cannot delete their default watchlist or rename it into an invalid state.
+    - `StockAlert` model supporting `PRICE_ABOVE`, `PRICE_BELOW`, `PCT_CHANGE_UP`, `PCT_CHANGE_DOWN`.
+  - Multi-Tenant Isolation & Endpoints:
+    - Full watchlist CRUD (`/api/watchlists`, `/api/watchlists/:id`, items `/items`).
+    - Multi-tenant tenant boundaries: User B receives 404 when querying User A's watchlists or alerts.
+    - Idempotent guest synchronization (`POST /api/watchlists/sync`): safely merges local storage items into PostgreSQL default watchlist.
+    - Stock alert CRUD (`/api/alerts`, `/api/alerts/:id`).
+- [x] **Phase 4C: Frontend Authentication & Watchlist Integration**:
+  - AuthContext & API Client:
+    - Handshake endpoint `GET /api/auth/csrf` caches CSRF token in memory.
+    - Axios client automatically injects `X-CSRF-Token` on state-changing requests with `withCredentials: true`.
+    - Single-flight refresh mutex (`refreshPromise`) coalesces concurrent 401 requests into a single `/api/auth/refresh` call.
+    - Session restoration via `GET /api/auth/me`.
+  - WatchlistContext:
+    - Seamlessly switches between guest `localStorage` and cloud PostgreSQL watchlists.
+    - Retains `localStorage` until confirmed server merge, avoiding data loss on network failure.
+  - UI Pages & Components:
+    - `LoginPage.jsx` & `RegisterPage.jsx` with password policy indicator and dark fintech aesthetic.
+    - `WatchlistPage.jsx` displaying storage indicators (Cloud PostgreSQL vs Guest LocalStorage) and guest sync actions.
+    - `AlertsPage.jsx` for alert rule management with active/paused toggle and inline threshold editing.
+    - `Header.jsx` user profile dropdown with role badge, watchlist/alert quick-links, and Sign Out.
+    - `ProtectedRoute.jsx` route guard preserving requested location for post-login redirect.
+- [x] **Phase 4D: Full-System End-to-End Audit & Polish**:
+  - Comprehensive E2E test suite in `backend/tests/milestone4E2E.test.js` covering 7 key scenarios (22/22 passed).
+  - CORS and origin handling hardened (`cors` callback passing `null, false` to defer to `csrfProtection` throwing `FORBIDDEN_ORIGIN`).
+  - Helmet configured with `strict-origin-when-cross-origin` referrer policy.
+  - Full regression pass:
+    - Frontend unit tests: **41 / 41 passing** across 15 test suites.
+    - Frontend production bundle: **Vite build succeeds cleanly (1,671 modules transformed)**.
+    - Backend test suite: **391 / 391 passing** across 83 test suites.
+    - Python ML service: **2 / 2 passing**.
+    - Prisma migrations: **7 migrations verified and up-to-date on both `stocksense_db` and `stocksense_test_db`**.
+    - Clean database state: `stocksense_db` verified at `{"stocks":19,"candles":0,"sessions":0,"users":0,"alerts":0,"watchlists":0}`.
+
+### Milestone 5: Market Intelligence Pipeline & ML Predictions
+- [x] **Phase 5A: Market Data Foundation & Historical Dataset**:
+  - **Indian Trading Calendar Engine (`backend/src/utils/tradingCalendar.js`)**:
+    - Official exchange holiday dictionary covering 2021 through 2026 for NSE/BSE (Republic Day, Independence Day, Gandhi Jayanti, Diwali, Holi, Eid, election closures, etc.).
+    - Weekend detection in `Asia/Kolkata` timezone (UTC+05:30).
+    - `isTradingDay()`, `getExpectedTradingDays(from, to)`, and `analyzeCandleGaps(expectedTradingDays, candleTimestamps)`.
+    - Automatically excludes weekends and exchange holidays so they are never falsely reported as missing data or gaps.
+    - Accurately tracks missing trading days, multi-day unexpected gaps ($\ge 2$ days), and overall coverage percentage.
+  - **Historical Ingestion Pipeline Hardening (`backend/src/services/historical/historicalIngestion.service.js`)**:
+    - Configurable date range supporting 3–5 years (`years` parameter, defaulting to `DEFAULT_HISTORICAL_YEARS = 3`).
+    - Incremental ingestion (`incremental: true`): queries PostgreSQL for the latest stored candle; skips API call with `alreadyUpToDate: true` if fresh, or resumes from latest candle date.
+    - Redis distributed locking (`SET NX EX`) with cryptographically unique token, periodic Lua heartbeat renewal, fail-closed assertion, and atomic Lua compare-and-delete release.
+    - Upstox V3 date chunking integration (365-day spans for daily interval `1D`, handling leap years).
+    - Database persistence batching (250/batch) with idempotent upsert against compound unique key `[stockId, timestamp, interval]`.
+    - Within-batch duplicate timestamp deduplication (`skipped: 1, inserted: 1`).
+    - Redis cache invalidation (`invalidateStockPricesCache`) triggered upon successful persistence.
+    - Structured audit logs in `DataSourceLog` and persistent run summaries in `SystemConfig.UPSTOX_HISTORICAL_INGESTION_SUMMARY`.
+  - **Ingestion CLI Tool (`backend/scripts/ingestHistorical.js`)**:
+    - Complete CLI flags: `--symbol=SYM`, `--symbols=S1,S2`, `--all`, `--from=YYYY-MM-DD`, `--to=YYYY-MM-DD`, `--years=N`, `--interval=INTERVAL`, `--incremental`, `--dry-run`, `--mock`, `--help`.
+    - Strict Upstox token validation: checks active token; if missing, displays clear authorization guidance (`http://localhost:5001/api/auth/upstox/start`) without fabricating data.
+    - Offline mock provider (`--mock`) for non-interactive dry-run verification and simulated dataset testing.
+  - **Dedicated Test Suite & Regression Verification**:
+    - Implemented `backend/tests/historicalFoundation.test.js` (24/24 passing tests).
+    - Backend test suite: **415 / 415 tests passing** across 93 test suites (100% pass rate).
+    - Frontend unit tests: **41 / 41 tests passing** across 15 test suites.
+    - Frontend production bundle: **Vite build succeeds cleanly (1,671 modules transformed in 2.32s)**.
+    - Python ML service: **2 / 2 tests passing**.
+    - Prisma migrations: **7 migrations verified and up to date on both `stocksense_db` and `stocksense_test_db`**.
+    - Verified PostgreSQL & Redis clean state: 0 active queries/locks, `stocksense_db` pristine with `{"stocks":19,"candles":0,"sessions":0,"users":0,"alerts":0,"watchlists":0}`.
+- [x] **Phase 5B: Technical Indicators & Feature Engineering Engine**:
+  - **Python FastAPI Analytical Engine (`ml-service/app/services/indicators.py`)**:
+    - Implemented 10 required technical indicators: SMA (20, 50, 200), EMA (12, 26, 50), RSI (14, Wilder's), MACD (12, 26, 9), Bollinger Bands (20, 2 std dev), ATR (14, Wilder's), Daily Returns, Rolling Volatility (20-day annualized), Volume SMA (20), and Relative Volume (RVOL).
+    - Causality guarantee: Strict backward-looking windowing with zero look-ahead bias verified by unit tests.
+    - Robustness: Handles flat prices, zero volume, and insufficient observations with clean `None` / `NaN` outputs and no divide-by-zero errors.
+  - **Feature Engineering Pipeline (`ml-service/app/services/features.py`)**:
+    - Scale-invariant and normalized features: Price relative to SMAs/EMAs, normalized RSI ([-1, 1]), 5-day RSI slope, price-normalized MACD histogram, Bollinger Band %B, z-score, bandwidth, ATR %, multi-horizon returns (1d, 5d, 21d), rolling 20d volatility, relative volume, moving average spreads, and trend alignment score (+1.0 bullish, -1.0 bearish).
+    - Clean separation: Feature engineering pipeline is strictly decoupled from model training.
+  - **FastAPI Endpoints & Schemas (`ml-service/app/api/`)**:
+    - `POST /api/indicators/compute`: Computes full indicator series and latest snapshot.
+    - `POST /api/features/engineer`: Returns structured tabular feature matrix for machine learning.
+  - **Express API Gateway Integration (`backend/src/`)**:
+    - `backend/src/services/mlClient.service.js`: Node.js HTTP client to ML microservice with connection error handling (`503 ML_SERVICE_UNAVAILABLE`).
+    - `backend/src/controllers/indicator.controller.js`: Orchestrates historical candle retrieval from PostgreSQL, cache lookup in Redis (300s TTL), and ML service RPC.
+    - `GET /api/stocks/:id/indicators` and `GET /api/stocks/:id/features` mounted in `stock.routes.js`.
+  - **Exhaustive Testing & Verification**:
+    - ML service test suite (`ml-service/tests/`): **29 / 29 passed** (19 indicator tests, 8 feature engineering tests, 2 health check tests).
+    - Backend integration test suite (`backend/tests/`): **426 / 426 passed** across 96 test suites (including `indicatorApi.test.js`).
+    - Frontend unit tests: **41 / 41 passed**.
+    - Frontend production build: **1,671 modules transformed in 1.33s, 0 errors**.
+    - Verified clean database state: `stocksense_db` has 0 synthetic candles; zero mock prices in production.
+- [x] **Phase 5 Controlled Multi-Stock Historical Data Ingestion & Audits**:
+  - **RELIANCE (`NSE_EQ|INE002A01018`) Ingestion & Audit**:
+    - 3-year historical daily OHLCV dataset imported via official Upstox API V3 (743 candles, 2023-11-12 to 2026-11-09).
+    - Reconciled trading calendar discrepancy: 734 authoritative baseline weekdays (100.0% coverage) + 9 official special sessions (4 Diwali Muhurat + 5 weekend/DR/budget sessions).
+    - Resolved 2026 holiday classifications: March 20 and May 27, 2026 confirmed as ordinary weekdays; March 31, 2026 confirmed as Mahavir Jayanti.
+    - 0 duplicate timestamps, 0 OHLC violations, 100% Upstox data provenance.
+  - **TCS (`NSE_EQ|INE467B01029`) Ingestion & Audit**:
+    - 3-year historical daily OHLCV dataset imported via official Upstox API V3 (743 candles, 2023-11-12 to 2026-11-09).
+    - 100.0% exact date parity with RELIANCE dataset (743/743 identical trading sessions).
+    - Zero OHLC invariant violations ($H \ge L, H \ge O, H \ge C, L \le O, L \le C$).
+    - Zero duplicates, strict monotonic ordering, 100% positive prices and non-negative volume.
+    - Express REST API `GET /api/stocks/TCS/prices?limit=1000` tested and verified (HTTP 200, cached in Redis).
+    - Strict multi-stock isolation: RELIANCE preserved at exactly 743 candles; INFY, HDFCBANK, ICICIBANK untouched at 0 candles.
+  - **INFY (`NSE_EQ|INE009A01021`) Ingestion & Audit**:
+    - 3-year historical daily OHLCV dataset imported via official Upstox API V3 (743 candles, 2023-11-12 to 2026-11-09).
+    - 100.0% exact date parity with RELIANCE and TCS datasets (743/743 identical trading sessions).
+    - Zero OHLC invariant violations ($H \ge L, H \ge O, H \ge C, L \le O, L \le C$).
+    - Zero duplicates, strict monotonic ordering, 100% positive prices and non-negative volume.
+    - 100.0% authoritative calendar baseline coverage (734/734 expected standard weekdays + 9 special sessions).
+    - Direct live Upstox vs PostgreSQL spot-check: 6 dates, 36 field comparisons, 0 mismatches.
+    - Express REST API `GET /api/stocks/INFY/prices?limit=1000` tested and verified (HTTP 200, cached in Redis).
+    - Strict multi-stock isolation: RELIANCE (743) and TCS (743) preserved; HDFCBANK (0) and ICICIBANK (0) untouched.
+  - **HDFCBANK (`NSE_EQ|INE040A01034`) Ingestion & Audit**:
+    - 3-year historical daily OHLCV dataset imported via official Upstox API V3 (743 candles, 2023-11-12 to 2026-11-09).
+    - 100.0% exact date parity with RELIANCE, TCS, and INFY datasets (743/743 identical trading sessions).
+    - Zero OHLC invariant violations ($H \ge L, H \ge O, H \ge C, L \le O, L \le C$).
+    - Zero duplicates, strict monotonic ordering, 100% positive prices and non-negative volume.
+    - 100.0% authoritative calendar baseline coverage (734/734 expected standard weekdays + 9 special sessions).
+    - Direct live Upstox vs PostgreSQL spot-check: 6 dates, 36 field comparisons, 0 mismatches.
+    - Express REST API `GET /api/stocks/HDFCBANK/prices?limit=1000` tested and verified (HTTP 200, cached in Redis).
+    - Strict multi-stock isolation: RELIANCE (743), TCS (743), INFY (743) preserved; ICICIBANK (0) untouched.
+  - **Phase 5A Combined Five-Stock Historical Dataset Audit**:
+    - Query-verified 743 candles per stock across all 5 initial equities (3,715 total daily candles, November 12, 2023 to November 9, 2026).
+    - 100.0% session-by-session date parity across all 5 instruments (743 identical timestamps).
+    - Multi-stock database isolation confirmed: all 14 non-approved stocks remain at exactly 0 candles.
+    - Zero duplicates across compound key `(stockId, timestamp, interval)`. Zero OHLC invariant violations.
+    - Documented limitations: raw prices are split/bonus adjusted by Upstox, but cash dividends are unadjusted (pure price return); corporate action table not yet added to Prisma schema.
+    - Certified: READY WITH DOCUMENTED LIMITATIONS in `docs/phase-5a-combined-dataset-audit.md`.
+- [x] **Phase 5B: Five-Stock Technical Indicators & Feature Engineering Integration**:
+  - **End-to-End Five-Stock Integration Across 3,715 Candles**:
+    - Integrated existing analytical engine (`ml-service/app/services/indicators.py`) and feature engineering pipeline (`ml-service/app/services/features.py`) across all 5 approved equities.
+    - Supported 10 technical indicators: SMA (20, 50, 200), EMA (12, 26, 50), RSI (14, Wilder's), MACD (12, 26, 9), Bollinger Bands (20, 2.0 population std `ddof=0`), ATR (14, Wilder's), Daily Returns, Rolling Volatility (20d annualized `ddof=1`), Volume SMA (20), Relative Volume (RVOL).
+    - Supported 23 scale-invariant, stationary ML features: `price_to_sma20/50/200`, `price_to_ema12/26/50`, `rsi_14`, `rsi_normalized`, `rsi_slope_5`, `macd_hist`, `macd_hist_normalized`, `bb_percent_b`, `bb_zscore`, `bb_bandwidth`, `atr_pct`, `return_1d`, `return_5d`, `return_21d`, `volatility_20d`, `relative_volume_20`, `trend_alignment`, `ma_spread_50_200`, `ma_spread_20_50`.
+  - **Mathematical Invariants & Causality Verification**:
+    - Initial valid warm-up indices verified across all 5 equities: Returns (index 1), Return 5d (index 5), EMA12 (index 11), ATR14 (index 13), RSI14 (index 14), SMA20/BB/RVOL (index 19), Volatility 20d (index 20), Return 21d (index 21), EMA26/MACD line (index 25), MACD signal/hist (index 33), SMA50/EMA50 (index 49), SMA200/Trend Alignment (index 199).
+    - Invariants: 100% PASS (RSI in $[0, 100]$, BB Lower $\le$ Middle $\le$ Upper, ATR $> 0$, Volatility $> 0$, RVOL $\ge 0$, Bandwidth $\ge 0$).
+    - Causality Guarantee: Strictly 0.0 floating-point difference on past feature rows ($t < 250$) when future candles ($t \ge 250$) were corrupted. Confirmed zero look-ahead bias.
+  - **ML Dataset Row Budgeting**:
+    - Stored candles per stock: **743 candles** (3,715 total).
+    - Warm-up rows dropped (`drop_na=True`): **199 rows** (indices 0..198 lost to 200-day SMA).
+    - Clean feature rows per stock: **544 rows** (2,720 pooled observations).
+    - Usable training rows by forward prediction horizon:
+      - Horizon $h=1$ (1-day forward return): **543 rows per stock** (2,715 pooled training rows).
+      - Horizon $h=3$ (3-day forward return): **541 rows per stock** (2,705 pooled training rows).
+      - Horizon $h=5$ (5-day forward return): **539 rows per stock** (2,695 pooled training rows).
+  - **$> 3\sigma$ Outlier Analysis (Asia/Kolkata Session Dates)**:
+    - 46 total outlier sessions cataloged across the 5 equities (RELIANCE: 8, TCS: 12, INFY: 11, HDFCBANK: 8, ICICIBANK: 7).
+    - Explicitly distinguished verified events from unverified candidates:
+      - **Verified Events**: 2024-06-04 Lok Sabha Election Results capitulation (RELIANCE -7.48%, HDFCBANK -5.66%, ICICIBANK -7.63%), 2024-06-03 Exit Poll surge (RELIANCE +5.59%), 2024-06-05 Post-Election Rebound (HDFCBANK +4.63%), 2024-01-17 HDFC Bank Q3 FY24 crash (-8.43%), 2024-01-29 RIL Q3 FY24 surge (+7.02%), 2024-01-12 INFY Q3 FY24 guidance beat (+7.93%), 2023-12-15 US Fed dovish pivot (TCS +5.28%, INFY +5.13%), 2023-12-04 State elections rally (ICICIBANK +4.70%), 2024-04-29 ICICI Bank Q4 FY24 beat (+4.72%), 2024-07-05 HDFC Bank MSCI/FII shareholding update (-4.59%), 2024-07-12 TCS Q1 FY25 beat (+6.63%).
+      - **Unverified Candidates**: Remaining 2025/2026 earnings windows and volatility clusters labeled as candidate events pending primary circular verification.
+  - **Express API Gateway & Redis Cache Integration**:
+    - Discovered and resolved `CACHE_TTL.DEFAULT` bug by adding `DEFAULT: 300` and `STOCK_INDICATORS: 300` to [`backend/src/services/cache.service.js`](file:///Users/vansh/Documents/stocksense/backend/src/services/cache.service.js).
+    - Verified live Express-to-FastAPI integration via [`backend/scripts/verifyPhase5bIntegration.js`](file:///Users/vansh/Documents/stocksense/backend/scripts/verifyPhase5bIntegration.js):
+      - Cache miss: 29ms – 73ms. Cache hit: 4ms – 5ms ($6\times$ to $18\times$ latency reduction).
+      - Targeted cache invalidation confirmed via `invalidateStockPricesCache(stockId)`.
+      - Fail-closed error handling verified (HTTP 503 `ML_SERVICE_UNAVAILABLE` when ML service is offline).
+  - **Automated Test Results**:
+    - Python ML Service: **29 / 29 passed** (`pytest ml-service/tests`).
+    - Backend Indicator API Tests: **11 / 11 passed** (`indicatorApi.test.js`).
+    - Backend Historical Foundation: **24 / 24 passed** (`historicalFoundation.test.js`).
+    - Backend Gateway Health Tests: **4 / 4 passed** (`health.test.js`).
+    - Frontend Unit Tests: **41 / 41 passed** (`npm test --prefix frontend`).
+    - Total test suite: **109 passing automated tests**.
+  - **Audit Sign-Off**: Formally certified as **READY FOR MODEL TRAINING (PHASE 5C)** in [`docs/phase-5b-five-stock-integration-audit.md`](file:///Users/vansh/Documents/stocksense/docs/phase-5b-five-stock-integration-audit.md) and UI artifact `phase_5b_five_stock_integration_audit.md`.

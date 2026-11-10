@@ -1,0 +1,24 @@
+# StockSense AI — Python AI/ML Service Requirements
+
+# Web framework & server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+httpx>=0.27.0
+python-dotenv>=1.0.1
+
+# Data Processing & Computation
+numpy>=1.26.0
+pandas>=2.2.0
+
+# Testing
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+
+# Machine Learning & AI (Prepared for Future Phases)
+scikit-learn>=1.5.0
+xgboost>=2.1.0
+# torch>=2.2.0
+# transformers>=4.40.0
+# shap>=0.45.0

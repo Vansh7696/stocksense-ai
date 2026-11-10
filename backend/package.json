@@ -1,0 +1,50 @@
+{
+  "name": "stocksense-backend",
+  "version": "1.0.0",
+  "description": "StockSense AI — Express Backend API Gateway and Data Orchestrator",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "node prisma/seed.js",
+    "ingest:instruments": "node scripts/ingestInstruments.js",
+    "ingest:historical": "node scripts/ingestHistorical.js",
+    "test": "NODE_ENV=test node --test --test-concurrency=1 --test-force-exit tests/**/*.test.js"
+  },
+  "keywords": [
+    "stocksense",
+    "stock-market",
+    "fintech",
+    "nse",
+    "bse",
+    "express",
+    "prisma"
+  ],
+  "author": "StockSense AI Team",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "argon2": "^0.45.2",
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.4.2",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "prisma": "^6.2.1",
+    "supertest": "^7.0.0"
+  }
+}

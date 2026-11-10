@@ -1,0 +1,227 @@
+// StockSense AI — Prisma Schema (PostgreSQL)
+// Version: Prisma 6
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// 1. User & Authentication
+// -------------------------------------------------------------
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  fullName     String
+  role         String        @default("USER") // "USER", "ADMIN", "ANALYST"
+  isActive     Boolean       @default(true)
+  lastLoginAt  DateTime?     @db.Timestamptz(3)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  watchlists   Watchlist[]
+  sessions     UserSession[]
+  alerts       StockAlert[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id                 String             @id @default(uuid())
+  userId             String
+  userAgent          String?            @db.VarChar(512)
+  ipAddress          String?            @db.VarChar(64)
+  idleExpiresAt      DateTime           @db.Timestamptz(3)
+  absoluteExpiresAt  DateTime           @db.Timestamptz(3)
+  revokedAt          DateTime?          @db.Timestamptz(3)
+  revocationReason   String?            @db.VarChar(64)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens             UserSessionToken[]
+
+  @@index([userId])
+  @@index([revokedAt])
+  @@map("user_sessions")
+}
+
+model UserSessionToken {
+  id           String      @id @default(uuid())
+  sessionId    String
+  tokenHash    String      @unique
+  consumedAt   DateTime?   @db.Timestamptz(3)
+  expiresAt    DateTime    @db.Timestamptz(3)
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+
+  session      UserSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([tokenHash])
+  @@map("user_session_tokens")
+}
+
+// -------------------------------------------------------------
+// 2. Exchange & Equities
+// -------------------------------------------------------------
+model Exchange {
+  id        String   @id @default(uuid())
+  code      String   @unique // "NSE", "BSE"
+  name      String
+  country   String   @default("India")
+  currency  String   @default("INR")
+  timezone  String   @default("Asia/Kolkata")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks    Stock[]
+
+  @@map("exchanges")
+}
+
+model Stock {
+  id              String            @id @default(uuid())
+  exchangeId      String
+  symbol          String            // e.g. "RELIANCE", "TCS", "INFY"
+  companyName     String
+  isin            String?           // e.g. "INE002A01018"
+  instrumentToken String?           @unique // Upstox instrument key e.g. "NSE_EQ|INE002A01018"
+  exchangeToken   String?           // Exchange-specific token / scrip code e.g. "2885", "500325"
+  segment         String            @default("NSE_EQ") // "NSE_EQ", "BSE_EQ", "NSE_INDEX", etc.
+  instrumentType  String            @default("EQUITY") // "EQUITY", "INDEX", "FUTURES", "OPTIONS", "BOND"
+  series          String            @default("EQ")
+  lotSize         Int               @default(1)
+  tickSize        Decimal?          @db.Decimal(10, 4)
+  expiryDate      DateTime?         @db.Timestamptz
+  sector          String?           // e.g. "Energy", "Information Technology"
+  industry        String?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  exchange        Exchange          @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+  historicalPrices HistoricalPrice[]
+  watchlistStocks WatchlistStock[]
+  alerts          StockAlert[]
+
+  @@unique([exchangeId, symbol, segment])
+  @@index([symbol])
+  @@index([isin])
+  @@index([sector])
+  @@index([instrumentType])
+  @@index([segment])
+  @@map("stocks")
+}
+
+// -------------------------------------------------------------
+// 3. Historical Price Data (OHLCV Candlesticks)
+// Precision: DECIMAL(14, 4) for institutional adjustments & NAVs
+// -------------------------------------------------------------
+model HistoricalPrice {
+  id         String   @id @default(uuid())
+  stockId    String
+  timestamp  DateTime @db.Timestamptz
+  open       Decimal  @db.Decimal(14, 4)
+  high       Decimal  @db.Decimal(14, 4)
+  low        Decimal  @db.Decimal(14, 4)
+  close      Decimal  @db.Decimal(14, 4)
+  volume     BigInt
+  interval   String   @default("1D") // "1m", "5m", "15m", "1D", "1W"
+  dataSource String   @default("UPSTOX") // "UPSTOX", "ANGEL_ONE", "MOCK"
+  createdAt  DateTime @default(now())
+
+  stock      Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@unique([stockId, timestamp, interval])
+  @@index([stockId, timestamp(sort: Desc)])
+  @@map("historical_prices")
+}
+
+// -------------------------------------------------------------
+// 4. Watchlists
+// -------------------------------------------------------------
+model Watchlist {
+  id        String           @id @default(uuid())
+  userId    String
+  name      String           @default("Default Watchlist")
+  isDefault Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stocks    WatchlistStock[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("watchlists")
+}
+
+model WatchlistStock {
+  id          String    @id @default(uuid())
+  watchlistId String
+  stockId     String
+  addedAt     DateTime  @default(now())
+
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  stock       Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, stockId])
+  @@map("watchlist_stocks")
+}
+
+// -------------------------------------------------------------
+// 5. Audit & Data Source Logs
+// -------------------------------------------------------------
+model DataSourceLog {
+  id               String   @id @default(uuid())
+  provider         String   // "UPSTOX", "NSE_SCRAPER", etc.
+  operation        String   // "SYNC_OHLCV", "INSTRUMENT_UPDATE", "QUOTE_FETCH"
+  status           String   // "SUCCESS", "FAILED", "PARTIAL"
+  recordsProcessed Int      @default(0)
+  errorMessage     String?  @db.Text
+  executionTimeMs  Int?
+  createdAt        DateTime @default(now())
+
+  @@index([provider, createdAt(sort: Desc)])
+  @@map("data_source_logs")
+}
+
+// -------------------------------------------------------------
+// 6. Platform & Provider System Configuration
+// -------------------------------------------------------------
+model SystemConfig {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@map("system_configs")
+}
+
+// -------------------------------------------------------------
+// 7. Stock Alerts (Milestone 4, Phase 4B)
+// -------------------------------------------------------------
+model StockAlert {
+  id          String    @id @default(uuid())
+  userId      String
+  stockId     String
+  alertType   String    @db.VarChar(32) // "PRICE_ABOVE", "PRICE_BELOW", "PCT_CHANGE_UP", "PCT_CHANGE_DOWN"
+  targetValue Decimal   @db.Decimal(14, 4)
+  notes       String?   @db.VarChar(255)
+  isActive    Boolean   @default(true)
+  triggeredAt DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stock       Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stockId])
+  @@index([isActive])
+  @@map("stock_alerts")
+}
