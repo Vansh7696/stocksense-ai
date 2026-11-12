@@ -60,6 +60,7 @@ export default function StockDetailPage() {
   const [selectedInterval, setSelectedInterval] = useState(initialInterval);
   const [candles, setCandles] = useState([]);
   const [pricePagination, setPricePagination] = useState(null);
+  const [alternateListing, setAlternateListing] = useState(null);
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [pricesError, setPricesError] = useState(null);
 
@@ -74,6 +75,7 @@ export default function StockDetailPage() {
     setLoadingStock(true);
     setStock(null);
     setCandles([]);
+    setAlternateListing(null);
     setStockError(null);
     setAmbiguousMatches(null);
 
@@ -86,7 +88,6 @@ export default function StockDetailPage() {
       const response = await getStockById(rawId, queryParams);
       const stockData = response?.data;
       setStock(stockData);
-      setInWatchlist(isStockInWatchlist(stockData.symbol) || isStockInWatchlist(stockData.id));
       addRecentlyViewed(stockData);
     } catch (err) {
       if (err.code === 'AMBIGUOUS_STOCK_IDENTIFIER' && err.details?.matches) {
@@ -121,9 +122,11 @@ export default function StockDetailPage() {
       const candlesData = response?.data?.candles || [];
       setCandles(candlesData);
       setPricePagination(response?.data?.pagination || null);
+      setAlternateListing(response?.data?.alternateListing || null);
     } catch (err) {
       setPricesError(err);
       setCandles([]);
+      setAlternateListing(null);
     } finally {
       setLoadingPrices(false);
     }
@@ -163,6 +166,13 @@ export default function StockDetailPage() {
   const handleSelectAmbiguousMatch = (match) => {
     const exchangeCode = match.exchange || match.exchange?.code || 'NSE';
     navigate(`/stocks/${encodeURIComponent(match.symbol)}?exchange=${exchangeCode}`);
+  };
+
+  // Navigate to verified alternative exchange listing
+  const handleNavigateAlternate = (alt) => {
+    if (!alt || !alt.symbol) return;
+    const exCode = alt.exchange || 'NSE';
+    navigate(`/stocks/${encodeURIComponent(alt.symbol)}?exchange=${exCode}`);
   };
 
   // Chronological metadata calculations
@@ -572,6 +582,8 @@ export default function StockDetailPage() {
             symbol={stock.symbol}
             exchange={stock.exchange?.code || 'NSE'}
             height={460}
+            alternateListing={alternateListing}
+            onNavigateAlternate={handleNavigateAlternate}
           />
         )}
       </div>

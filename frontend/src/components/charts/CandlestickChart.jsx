@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
-import { BarChart3, Loader2, Info } from 'lucide-react';
+import { BarChart3, Loader2, Info, TrendingUp, ArrowRight } from 'lucide-react';
 
 /**
  * Format Indian Rupee currency with 2 decimals
@@ -61,6 +61,8 @@ export default function CandlestickChart({
   symbol = '',
   exchange = 'NSE',
   height = 460,
+  alternateListing = null,
+  onNavigateAlternate = null,
 }) {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
@@ -386,10 +388,38 @@ export default function CandlestickChart({
             <p className="text-xs text-slate-400 max-w-md mb-4 leading-relaxed">
               Historical OHLCV candles for interval <span className="font-mono text-blue-400 font-semibold">{interval}</span> have not been ingested into the database yet for <span className="font-mono text-slate-200 font-semibold">{symbol || 'this stock'}</span>.
             </p>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-300 max-w-md text-left font-mono">
-              <Info className="w-4 h-4 shrink-0 text-blue-400" />
-              <span>Run the ingestion pipeline (<code className="text-white">npm run ingest:history</code>) or choose another interval.</span>
-            </div>
+            {alternateListing ? (
+              <div className="w-full max-w-md p-4 rounded-xl bg-blue-950/40 border border-blue-500/40 text-left space-y-3 shadow-lg">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 shrink-0 mt-0.5 border border-blue-500/30">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-white">
+                      Historical candles are not yet available for this {exchange} listing.
+                    </div>
+                    <div className="text-[11px] text-slate-300 leading-relaxed">
+                      Verified historical data is available for the {alternateListing.exchange} listing of the same company.
+                    </div>
+                  </div>
+                </div>
+                {onNavigateAlternate && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigateAlternate(alternateListing)}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs font-medium transition-all shadow-md shadow-blue-600/30 cursor-pointer"
+                  >
+                    <span>View {alternateListing.symbol} on {alternateListing.exchange}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-300 max-w-md text-left font-mono">
+                <Info className="w-4 h-4 shrink-0 text-blue-400" />
+                <span>Run the ingestion pipeline (<code className="text-white">npm run ingest:history</code>) or choose another interval.</span>
+              </div>
+            )}
           </div>
         )}
       </div>

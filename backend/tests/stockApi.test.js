@@ -436,12 +436,16 @@ describe('Milestone 3, Step 6: Express REST APIs & Redis Caching Test Suite', ()
       assert.ok(res.body.data.candles.length >= 1);
     });
 
-    test('returns empty candles list with 200 OK for stock with no candles', async () => {
+    test('returns empty candles list with 200 OK for stock with no candles and identifies verified alternate listing', async () => {
       const res = await request(app).get(`/api/stocks/${bseStock.id}/prices?interval=1D`);
       assert.equal(res.status, 200);
       assert.equal(res.body.success, true);
       assert.deepEqual(res.body.data.candles, []);
       assert.equal(res.body.data.pagination.totalRecords, 0);
+      assert.ok(res.body.data.alternateListing, 'Must identify verified alternate listing when available');
+      assert.equal(res.body.data.alternateListing.exchange, 'NSE');
+      assert.equal(res.body.data.alternateListing.symbol, seededStock.symbol);
+      assert.ok(res.body.data.alternateListing.candlesCount >= 1);
     });
 
     test('rejects non-existent stock with 404 STOCK_NOT_FOUND', async () => {

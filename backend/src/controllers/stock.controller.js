@@ -537,6 +537,7 @@ export async function getStockPrices(req, res, next) {
         id: true,
         symbol: true,
         companyName: true,
+        isin: true,
         instrumentToken: true,
         exchange: { select: { code: true } },
       },
@@ -584,6 +585,33 @@ export async function getStockPrices(req, res, next) {
 
         const totalPages = Math.ceil(totalRecords / limit);
 
+        // Check for verified alternate listing on another exchange with available candles
+        let alternateListing = null;
+        if (totalRecords === 0 && stock.isin) {
+          const alternateStock = await prisma.stock.findFirst({
+            where: {
+              isin: stock.isin,
+              id: { not: stock.id },
+              isActive: true,
+              historicalPrices: { some: { interval } },
+            },
+            include: {
+              exchange: { select: { code: true, name: true } },
+              _count: { select: { historicalPrices: true } },
+            },
+          });
+          if (alternateStock && alternateStock._count.historicalPrices > 0) {
+            alternateListing = {
+              id: alternateStock.id,
+              symbol: alternateStock.symbol,
+              companyName: alternateStock.companyName,
+              exchange: alternateStock.exchange.code,
+              exchangeName: alternateStock.exchange.name,
+              candlesCount: alternateStock._count.historicalPrices,
+            };
+          }
+        }
+
         return {
           stock: {
             id: stock.id,
@@ -594,6 +622,7 @@ export async function getStockPrices(req, res, next) {
           },
           interval,
           candles: rawCandles.map(formatCandleRecord),
+          alternateListing,
           pagination: {
             page,
             limit,

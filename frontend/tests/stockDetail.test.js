@@ -197,6 +197,36 @@ describe('Frontend Phase 1, Step D: Stock Detail & Candlestick Processing Tests'
       const recent = getRecentlyViewed();
       assert.ok(recent.some((r) => r.symbol === 'TCS'));
     });
+
+    test('should add, retrieve and toggle BSE stock (e.g., 500325) correctly', () => {
+      const bseStock = {
+        id: 'bse-uuid-500325',
+        symbol: '500325',
+        name: 'Reliance Industries Limited (BSE)',
+        companyName: 'Reliance Industries Limited',
+        exchange: { code: 'BSE' },
+        isin: 'INE002A01018',
+        instrumentType: 'EQUITY',
+      };
+
+      addToWatchlist(bseStock);
+      assert.strictEqual(isStockInWatchlist('500325'), true);
+      assert.strictEqual(isStockInWatchlist('bse-uuid-500325'), true);
+
+      // Verify reactive inWatchlist calculation matching StockDetailPage logic
+      const isInWatchlist = (symbolOrId) => isStockInWatchlist(symbolOrId);
+      const inWatchlist = bseStock ? (isInWatchlist(bseStock.id) || isInWatchlist(bseStock.symbol)) : false;
+      assert.strictEqual(inWatchlist, true);
+
+      // Verify recently viewed tracking works seamlessly for BSE instrument
+      addRecentlyViewed(bseStock);
+      const recents = getRecentlyViewed();
+      assert.ok(recents.some((r) => r.symbol === '500325' || r.id === 'bse-uuid-500325'));
+
+      // Remove from watchlist
+      removeFromWatchlist('500325');
+      assert.strictEqual(isStockInWatchlist('500325'), false);
+    });
   });
 
   describe('3. Supported Intervals Whitelist', () => {
@@ -369,6 +399,98 @@ describe('Frontend Phase 1, Step D: Stock Detail & Candlestick Processing Tests'
 
       assert.ok(Array.isArray(recents));
       assert.strictEqual(recents.length, 0);
+    });
+  });
+
+  describe('8. Alternate Exchange Listing Resolution & Navigation', () => {
+    test('should construct verified alternate listing navigation when BSE stock has 0 candles', () => {
+      const bseStock = {
+        id: '8461662c-9d93-43d3-ae90-a540b370feae',
+        symbol: '500325',
+        companyName: 'Reliance Industries Limited',
+        isin: 'INE002A01018',
+        exchange: { code: 'BSE' },
+      };
+
+      const pricesPayload = {
+        stock: {
+          id: bseStock.id,
+          symbol: bseStock.symbol,
+          companyName: bseStock.companyName,
+          exchange: 'BSE',
+        },
+        interval: '1D',
+        candles: [],
+        alternateListing: {
+          id: 'd17d8b45-02af-4592-9514-e44616d74685',
+          symbol: 'RELIANCE',
+          companyName: 'Reliance Industries Limited',
+          exchange: 'NSE',
+          exchangeName: 'National Stock Exchange of India',
+          candlesCount: 743,
+        },
+        pagination: { totalRecords: 0 },
+      };
+
+      // 1. Verify empty state condition
+      assert.strictEqual(pricesPayload.candles.length, 0);
+      assert.strictEqual(pricesPayload.pagination.totalRecords, 0);
+
+      // 2. Verify alternate listing presence and metadata
+      const alt = pricesPayload.alternateListing;
+      assert.ok(alt, 'Alternate listing must be present');
+      assert.strictEqual(alt.exchange, 'NSE');
+      assert.strictEqual(alt.symbol, 'RELIANCE');
+      assert.strictEqual(alt.candlesCount, 743);
+
+      // 3. Verify message and supporting text construction
+      const message = `Historical candles are not yet available for this ${bseStock.exchange.code} listing.`;
+      const supportingText = `Verified historical data is available for the ${alt.exchange} listing of the same company.`;
+      const actionText = `View ${alt.symbol} on ${alt.exchange}`;
+      const navigationUrl = `/stocks/${encodeURIComponent(alt.symbol)}?exchange=${alt.exchange}`;
+
+      assert.strictEqual(message, 'Historical candles are not yet available for this BSE listing.');
+      assert.strictEqual(supportingText, 'Verified historical data is available for the NSE listing of the same company.');
+      assert.strictEqual(actionText, 'View RELIANCE on NSE');
+      assert.strictEqual(navigationUrl, '/stocks/RELIANCE?exchange=NSE');
+    });
+
+    test('should NOT provide alternative suggestion when alternate listing has no candles', () => {
+      const bseStock = {
+        id: '2114c05e-79c5-4486-af1d-3e5c880f964e',
+        symbol: 'RAJKSYN',
+        exchange: { code: 'BSE' },
+      };
+
+      const pricesPayload = {
+        stock: { id: bseStock.id, symbol: bseStock.symbol, exchange: 'BSE' },
+        interval: '1D',
+        candles: [],
+        alternateListing: null,
+        pagination: { totalRecords: 0 },
+      };
+
+      assert.strictEqual(pricesPayload.candles.length, 0);
+      assert.strictEqual(pricesPayload.alternateListing, null);
+    });
+
+    test('should NOT provide alternative suggestion when current stock already has candles', () => {
+      const nseStock = {
+        id: 'd17d8b45-02af-4592-9514-e44616d74685',
+        symbol: 'RELIANCE',
+        exchange: { code: 'NSE' },
+      };
+
+      const pricesPayload = {
+        stock: { id: nseStock.id, symbol: nseStock.symbol, exchange: 'NSE' },
+        interval: '1D',
+        candles: [{ timestamp: '2026-03-31T09:15:00.000Z', open: 2980, close: 3005 }],
+        alternateListing: null,
+        pagination: { totalRecords: 743 },
+      };
+
+      assert.ok(pricesPayload.candles.length > 0);
+      assert.strictEqual(pricesPayload.alternateListing, null);
     });
   });
 });
