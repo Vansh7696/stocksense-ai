@@ -795,9 +795,11 @@ class TestHistoricalDatasetRegression:
         Verifies that when the verified 544 clean calendar sessions are supplied,
         exactly 8,115 targets and 45 exclusions are produced across all 5 stocks.
         """
-        path = "/Users/vansh/.gemini/antigravity/brain/0dd47e33-8dcd-41dc-b48c-008944fca820/scratch/five_stocks_candles.json"
+        path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "data", "historical_candles_5stocks.json")
+        )
         if not os.path.exists(path):
-            pytest.skip("Historical scratch dataset not available")
+            pytest.skip("Historical canonical fixture historical_candles_5stocks.json not available")
 
         with open(path) as f:
             data = json.load(f)

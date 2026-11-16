@@ -1,0 +1,855 @@
+{
+  "experiment_id": "eval_phase_5c3_final_test_20261116",
+  "evaluation_timestamp_utc": "2026-11-16T13:48:57.815203+00:00",
+  "dataset_sha256": "d75a0e0f4e94c0991bbca71e911333b1944e7f064d8f4dd712cffa1688b97170",
+  "dataset_identifier": "canonical_5stocks_v1",
+  "git_commit": "947a3aa26e347b1c3c0270b1d8964bb155797873",
+  "runtime_environment": {
+    "python": "3.15.2",
+    "scikit-learn": "1.9.1",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1"
+  },
+  "evaluation_guard": {
+    "experiment_id": "eval_phase_5c3_final_test_20261116",
+    "state": "evaluated",
+    "started_at_utc": "2026-11-16T13:48:52.777944+00:00",
+    "completed_at_utc": "2026-11-16T13:48:57.816337+00:00",
+    "dataset_sha256": "d75a0e0f4e94c0991bbca71e911333b1944e7f064d8f4dd712cffa1688b97170",
+    "model_ids": [
+      "logistic_regression_h1_v1.0.0",
+      "logistic_regression_h3_v1.0.0",
+      "logistic_regression_h5_v1.0.0"
+    ],
+    "model_artifact_hashes": {
+      "logistic_regression_h1_v1.0.0": "5f35a9d74943747559c653af72eab9095ade4b8d5057e8d0aec778be0ea14f87",
+      "logistic_regression_h3_v1.0.0": "022b98bbd3c43963190ecd370199185d2ec1ac04bd425747d2bf00253323bb6f",
+      "logistic_regression_h5_v1.0.0": "c88b46e78ee2ea7f5eb0cd2a7c7ee137bb8835e647e49da5169205c622d22a52"
+    },
+    "results_artifact_path": "/Users/vansh/Documents/stocksense/ml-service/models/evaluations/eval_phase_5c3_final_test_20261116/evaluation_report.json",
+    "results_artifact_sha256": "7860335bbc825c6886de34cc74448881bcc95993a4ec64d52aa6171473e3b932",
+    "error_message": null
+  },
+  "horizons": {
+    "1": {
+      "horizon": 1,
+      "model_id": "logistic_regression_h1_v1.0.0",
+      "model_version": "1.0.0",
+      "model_artifact_sha256": "5f35a9d74943747559c653af72eab9095ade4b8d5057e8d0aec778be0ea14f87",
+      "hyperparameters": {
+        "C": 0.001,
+        "class_weight": null,
+        "solver": "lbfgs",
+        "max_iter": 1000,
+        "tol": 0.0001,
+        "random_state": 42
+      },
+      "training_samples": 1895,
+      "validation_samples": 400,
+      "test_samples": 410,
+      "validation_metrics": {
+        "accuracy": 0.395,
+        "balanced_accuracy": 0.3869920843204893,
+        "macro_precision": 0.41489504647399383,
+        "macro_recall": 0.3869920843204893,
+        "macro_f1": 0.3395609933377916,
+        "per_class": {
+          "DOWN": {
+            "precision": 0.4048582995951417,
+            "recall": 0.6896551724137931,
+            "f1": 0.5102040816326531,
+            "support": 145
+          },
+          "NEUTRAL": {
+            "precision": 0.36363636363636365,
+            "recall": 0.39669421487603307,
+            "f1": 0.37944664031620556,
+            "support": 121
+          },
+          "UP": {
+            "precision": 0.47619047619047616,
+            "recall": 0.07462686567164178,
+            "f1": 0.12903225806451613,
+            "support": 134
+          }
+        },
+        "confusion_matrix": [
+          [
+            100,
+            40,
+            5
+          ],
+          [
+            67,
+            48,
+            6
+          ],
+          [
+            80,
+            44,
+            10
+          ]
+        ],
+        "catastrophic_error": {
+          "count": 85,
+          "rate": 0.2125,
+          "down_to_up_count": 5,
+          "up_to_down_count": 80,
+          "total_samples": 400,
+          "directional_samples_count": 279,
+          "directional_subset_rate": 0.3046594982078853
+        },
+        "log_loss": 1.0882442201494298,
+        "brier_score": 0.6597776827067636,
+        "total_samples": 400,
+        "horizon": 1,
+        "model_name": "LogisticRegression_h1_selected",
+        "metadata": {}
+      },
+      "test_metrics": {
+        "accuracy": 0.3829268292682927,
+        "balanced_accuracy": 0.365229452119696,
+        "macro_precision": 0.29629536323243183,
+        "macro_recall": 0.365229452119696,
+        "macro_f1": 0.3063775932628392,
+        "per_class": {
+          "DOWN": {
+            "precision": 0.38764044943820225,
+            "recall": 0.4791666666666667,
+            "f1": 0.4285714285714286,
+            "support": 144
+          },
+          "NEUTRAL": {
+            "precision": 0.3901345291479821,
+            "recall": 0.6083916083916084,
+            "f1": 0.4754098360655738,
+            "support": 143
+          },
+          "UP": {
+            "precision": 0.1111111111111111,
+            "recall": 0.008130081300813009,
+            "f1": 0.015151515151515154,
+            "support": 123
+          }
+        },
+        "confusion_matrix": [
+          [
+            69,
+            71,
+            4
+          ],
+          [
+            52,
+            87,
+            4
+          ],
+          [
+            57,
+            65,
+            1
+          ]
+        ],
+        "catastrophic_error": {
+          "count": 61,
+          "rate": 0.14878048780487804,
+          "down_to_up_count": 4,
+          "up_to_down_count": 57,
+          "total_samples": 410,
+          "directional_samples_count": 267,
+          "directional_subset_rate": 0.22846441947565543
+        },
+        "log_loss": 1.0966165287606178,
+        "brier_score": 0.6641233541713596,
+        "total_samples": 410,
+        "horizon": 1,
+        "model_name": "LogisticRegression_h1_test",
+        "metadata": {}
+      },
+      "generalization_delta": {
+        "balanced_accuracy_delta": -0.02176263220079333,
+        "macro_f1_delta": -0.03318340007495241,
+        "log_loss_delta": 0.008372308611187984,
+        "accuracy_delta": -0.012073170731707328
+      },
+      "baseline_comparisons": {
+        "majority": {
+          "baseline_name": "MajorityClassifier",
+          "metrics": {
+            "accuracy": 0.348780487804878,
+            "balanced_accuracy": 0.3333333333333333,
+            "macro_precision": 0.11626016260162601,
+            "macro_recall": 0.3333333333333333,
+            "macro_f1": 0.17239300783604583,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 144
+              },
+              "NEUTRAL": {
+                "precision": 0.348780487804878,
+                "recall": 1.0,
+                "f1": 0.5171790235081375,
+                "support": 143
+              },
+              "UP": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 123
+              }
+            },
+            "confusion_matrix": [
+              [
+                0,
+                144,
+                0
+              ],
+              [
+                0,
+                143,
+                0
+              ],
+              [
+                0,
+                123,
+                0
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 0,
+              "rate": 0.0,
+              "down_to_up_count": 0,
+              "up_to_down_count": 0,
+              "total_samples": 410,
+              "directional_samples_count": 267,
+              "directional_subset_rate": 0.0
+            },
+            "log_loss": 1.1015478869244932,
+            "brier_score": 0.6689148030124559,
+            "total_samples": 410,
+            "horizon": 1,
+            "model_name": "Majority_h1_test",
+            "metadata": {}
+          },
+          "balanced_accuracy_diff": 0.03189611878636267,
+          "macro_f1_diff": 0.13398458542679337,
+          "log_loss_diff": -0.0049313581638754656
+        },
+        "momentum": {
+          "baseline_name": "MomentumBaseline",
+          "metrics": {
+            "accuracy": 0.33902439024390246,
+            "balanced_accuracy": 0.3328145431803968,
+            "macro_precision": 0.32261444154027275,
+            "macro_recall": 0.3328145431803968,
+            "macro_f1": 0.29538582486695697,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.2647058823529412,
+                "recall": 0.125,
+                "f1": 0.16981132075471697,
+                "support": 144
+              },
+              "NEUTRAL": {
+                "precision": 0.3553113553113553,
+                "recall": 0.6783216783216783,
+                "f1": 0.4663461538461538,
+                "support": 143
+              },
+              "UP": {
+                "precision": 0.34782608695652173,
+                "recall": 0.1951219512195122,
+                "f1": 0.25000000000000006,
+                "support": 123
+              }
+            },
+            "confusion_matrix": [
+              [
+                18,
+                104,
+                22
+              ],
+              [
+                23,
+                97,
+                23
+              ],
+              [
+                27,
+                72,
+                24
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 49,
+              "rate": 0.11951219512195121,
+              "down_to_up_count": 22,
+              "up_to_down_count": 27,
+              "total_samples": 410,
+              "directional_samples_count": 267,
+              "directional_subset_rate": 0.18352059925093633
+            },
+            "log_loss": 1.1102441289877523,
+            "brier_score": 0.6742513020144681,
+            "total_samples": 410,
+            "horizon": 1,
+            "model_name": "Momentum_h1_test",
+            "metadata": {}
+          },
+          "balanced_accuracy_diff": 0.03241490893929916,
+          "macro_f1_diff": 0.010991768395882229,
+          "log_loss_diff": -0.013627600227134495
+        }
+      }
+    },
+    "3": {
+      "horizon": 3,
+      "model_id": "logistic_regression_h3_v1.0.0",
+      "model_version": "1.0.0",
+      "model_artifact_sha256": "022b98bbd3c43963190ecd370199185d2ec1ac04bd425747d2bf00253323bb6f",
+      "hyperparameters": {
+        "C": 0.001,
+        "class_weight": "balanced",
+        "solver": "lbfgs",
+        "max_iter": 1000,
+        "tol": 0.0001,
+        "random_state": 42
+      },
+      "training_samples": 1885,
+      "validation_samples": 390,
+      "test_samples": 400,
+      "validation_metrics": {
+        "accuracy": 0.382051282051282,
+        "balanced_accuracy": 0.36304609984856473,
+        "macro_precision": 0.3392972275951,
+        "macro_recall": 0.36304609984856473,
+        "macro_f1": 0.304088199382317,
+        "per_class": {
+          "DOWN": {
+            "precision": 0.40425531914893614,
+            "recall": 0.5135135135135135,
+            "f1": 0.4523809523809524,
+            "support": 148
+          },
+          "NEUTRAL": {
+            "precision": 0.25,
+            "recall": 0.008695652173913044,
+            "f1": 0.01680672268907563,
+            "support": 115
+          },
+          "UP": {
+            "precision": 0.36363636363636365,
+            "recall": 0.5669291338582677,
+            "f1": 0.4430769230769231,
+            "support": 127
+          }
+        },
+        "confusion_matrix": [
+          [
+            76,
+            2,
+            70
+          ],
+          [
+            58,
+            1,
+            56
+          ],
+          [
+            54,
+            1,
+            72
+          ]
+        ],
+        "catastrophic_error": {
+          "count": 124,
+          "rate": 0.31794871794871793,
+          "down_to_up_count": 70,
+          "up_to_down_count": 54,
+          "total_samples": 390,
+          "directional_samples_count": 275,
+          "directional_subset_rate": 0.4509090909090909
+        },
+        "log_loss": 1.0952390501648603,
+        "brier_score": 0.6634892522015448,
+        "total_samples": 390,
+        "horizon": 3,
+        "model_name": "LogisticRegression_h3_selected",
+        "metadata": {}
+      },
+      "test_metrics": {
+        "accuracy": 0.33,
+        "balanced_accuracy": 0.33448575180152806,
+        "macro_precision": 0.3704826510361734,
+        "macro_recall": 0.33448575180152806,
+        "macro_f1": 0.32817680914507247,
+        "per_class": {
+          "DOWN": {
+            "precision": 0.3103448275862069,
+            "recall": 0.32608695652173914,
+            "f1": 0.31802120141342755,
+            "support": 138
+          },
+          "NEUTRAL": {
+            "precision": 0.5161290322580645,
+            "recall": 0.2302158273381295,
+            "f1": 0.31840796019900497,
+            "support": 139
+          },
+          "UP": {
+            "precision": 0.2849740932642487,
+            "recall": 0.44715447154471544,
+            "f1": 0.34810126582278483,
+            "support": 123
+          }
+        },
+        "confusion_matrix": [
+          [
+            45,
+            22,
+            71
+          ],
+          [
+            40,
+            32,
+            67
+          ],
+          [
+            60,
+            8,
+            55
+          ]
+        ],
+        "catastrophic_error": {
+          "count": 131,
+          "rate": 0.3275,
+          "down_to_up_count": 71,
+          "up_to_down_count": 60,
+          "total_samples": 400,
+          "directional_samples_count": 261,
+          "directional_subset_rate": 0.5019157088122606
+        },
+        "log_loss": 1.104568881718687,
+        "brier_score": 0.6713392053519094,
+        "total_samples": 400,
+        "horizon": 3,
+        "model_name": "LogisticRegression_h3_test",
+        "metadata": {}
+      },
+      "generalization_delta": {
+        "balanced_accuracy_delta": -0.028560348047036666,
+        "macro_f1_delta": 0.024088609762755453,
+        "log_loss_delta": 0.009329831553826606,
+        "accuracy_delta": -0.05205128205128201
+      },
+      "baseline_comparisons": {
+        "majority": {
+          "baseline_name": "MajorityClassifier",
+          "metrics": {
+            "accuracy": 0.3475,
+            "balanced_accuracy": 0.3333333333333333,
+            "macro_precision": 0.11583333333333333,
+            "macro_recall": 0.3333333333333333,
+            "macro_f1": 0.17192331478045764,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 138
+              },
+              "NEUTRAL": {
+                "precision": 0.3475,
+                "recall": 1.0,
+                "f1": 0.5157699443413729,
+                "support": 139
+              },
+              "UP": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 123
+              }
+            },
+            "confusion_matrix": [
+              [
+                0,
+                138,
+                0
+              ],
+              [
+                0,
+                139,
+                0
+              ],
+              [
+                0,
+                123,
+                0
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 0,
+              "rate": 0.0,
+              "down_to_up_count": 0,
+              "up_to_down_count": 0,
+              "total_samples": 400,
+              "directional_samples_count": 261,
+              "directional_subset_rate": 0.0
+            },
+            "log_loss": 1.1070134111860768,
+            "brier_score": 0.6727047752393952,
+            "total_samples": 400,
+            "horizon": 3,
+            "model_name": "Majority_h3_test",
+            "metadata": {}
+          },
+          "balanced_accuracy_diff": 0.0011524184681947491,
+          "macro_f1_diff": 0.15625349436461483,
+          "log_loss_diff": -0.002444529467389822
+        },
+        "momentum": {
+          "baseline_name": "MomentumBaseline",
+          "metrics": {
+            "accuracy": 0.355,
+            "balanced_accuracy": 0.34867376512363807,
+            "macro_precision": 0.34442990375536303,
+            "macro_recall": 0.34867376512363807,
+            "macro_f1": 0.3125102239401252,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.29411764705882354,
+                "recall": 0.14492753623188406,
+                "f1": 0.19417475728155337,
+                "support": 138
+              },
+              "NEUTRAL": {
+                "precision": 0.3660377358490566,
+                "recall": 0.697841726618705,
+                "f1": 0.4801980198019802,
+                "support": 139
+              },
+              "UP": {
+                "precision": 0.373134328358209,
+                "recall": 0.2032520325203252,
+                "f1": 0.2631578947368421,
+                "support": 123
+              }
+            },
+            "confusion_matrix": [
+              [
+                20,
+                95,
+                23
+              ],
+              [
+                23,
+                97,
+                19
+              ],
+              [
+                25,
+                73,
+                25
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 48,
+              "rate": 0.12,
+              "down_to_up_count": 23,
+              "up_to_down_count": 25,
+              "total_samples": 400,
+              "directional_samples_count": 261,
+              "directional_subset_rate": 0.1839080459770115
+            },
+            "log_loss": 1.1016521463722728,
+            "brier_score": 0.6681118765423382,
+            "total_samples": 400,
+            "horizon": 3,
+            "model_name": "Momentum_h3_test",
+            "metadata": {}
+          },
+          "balanced_accuracy_diff": -0.014188013322110005,
+          "macro_f1_diff": 0.015666585204947292,
+          "log_loss_diff": 0.0029167353464141232
+        }
+      }
+    },
+    "5": {
+      "horizon": 5,
+      "model_id": "logistic_regression_h5_v1.0.0",
+      "model_version": "1.0.0",
+      "model_artifact_sha256": "c88b46e78ee2ea7f5eb0cd2a7c7ee137bb8835e647e49da5169205c622d22a52",
+      "hyperparameters": {
+        "C": 0.01,
+        "class_weight": "balanced",
+        "solver": "lbfgs",
+        "max_iter": 1000,
+        "tol": 0.0001,
+        "random_state": 42
+      },
+      "training_samples": 1875,
+      "validation_samples": 380,
+      "test_samples": 390,
+      "validation_metrics": {
+        "accuracy": 0.3605263157894737,
+        "balanced_accuracy": 0.3586744697979403,
+        "macro_precision": 0.37402663934426233,
+        "macro_recall": 0.3586744697979403,
+        "macro_f1": 0.2949558427198364,
+        "per_class": {
+          "DOWN": {
+            "precision": 0.40437158469945356,
+            "recall": 0.5103448275862069,
+            "f1": 0.45121951219512196,
+            "support": 145
+          },
+          "NEUTRAL": {
+            "precision": 0.4,
+            "recall": 0.016129032258064516,
+            "f1": 0.031007751937984496,
+            "support": 124
+          },
+          "UP": {
+            "precision": 0.3177083333333333,
+            "recall": 0.5495495495495496,
+            "f1": 0.40264026402640263,
+            "support": 111
+          }
+        },
+        "confusion_matrix": [
+          [
+            74,
+            2,
+            69
+          ],
+          [
+            60,
+            2,
+            62
+          ],
+          [
+            49,
+            1,
+            61
+          ]
+        ],
+        "catastrophic_error": {
+          "count": 118,
+          "rate": 0.3105263157894737,
+          "down_to_up_count": 69,
+          "up_to_down_count": 49,
+          "total_samples": 380,
+          "directional_samples_count": 256,
+          "directional_subset_rate": 0.4609375
+        },
+        "log_loss": 1.1463507292527624,
+        "brier_score": 0.6903545459493079,
+        "total_samples": 380,
+        "horizon": 5,
+        "model_name": "LogisticRegression_h5_selected",
+        "metadata": {}
+      },
+      "test_metrics": {
+        "accuracy": 0.28974358974358977,
+        "balanced_accuracy": 0.3015353918070796,
+        "macro_precision": 0.3223167756631362,
+        "macro_recall": 0.3015353918070796,
+        "macro_f1": 0.2890494542011057,
+        "per_class": {
+          "DOWN": {
+            "precision": 0.24475524475524477,
+            "recall": 0.2734375,
+            "f1": 0.25830258302583026,
+            "support": 128
+          },
+          "NEUTRAL": {
+            "precision": 0.463768115942029,
+            "recall": 0.20915032679738563,
+            "f1": 0.2882882882882883,
+            "support": 153
+          },
+          "UP": {
+            "precision": 0.25842696629213485,
+            "recall": 0.42201834862385323,
+            "f1": 0.32055749128919864,
+            "support": 109
+          }
+        },
+        "confusion_matrix": [
+          [
+            35,
+            30,
+            63
+          ],
+          [
+            52,
+            32,
+            69
+          ],
+          [
+            56,
+            7,
+            46
+          ]
+        ],
+        "catastrophic_error": {
+          "count": 119,
+          "rate": 0.30512820512820515,
+          "down_to_up_count": 63,
+          "up_to_down_count": 56,
+          "total_samples": 390,
+          "directional_samples_count": 237,
+          "directional_subset_rate": 0.5021097046413502
+        },
+        "log_loss": 1.1318333929759739,
+        "brier_score": 0.687907574250194,
+        "total_samples": 390,
+        "horizon": 5,
+        "model_name": "LogisticRegression_h5_test",
+        "metadata": {}
+      },
+      "generalization_delta": {
+        "balanced_accuracy_delta": -0.05713907799086071,
+        "macro_f1_delta": -0.005906388518730654,
+        "log_loss_delta": -0.014517336276788528,
+        "accuracy_delta": -0.07078272604588393
+      },
+      "baseline_comparisons": {
+        "majority": {
+          "baseline_name": "MajorityClassifier",
+          "metrics": {
+            "accuracy": 0.3923076923076923,
+            "balanced_accuracy": 0.3333333333333333,
+            "macro_precision": 0.13076923076923078,
+            "macro_recall": 0.3333333333333333,
+            "macro_f1": 0.1878453038674033,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 128
+              },
+              "NEUTRAL": {
+                "precision": 0.3923076923076923,
+                "recall": 1.0,
+                "f1": 0.56353591160221,
+                "support": 153
+              },
+              "UP": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 109
+              }
+            },
+            "confusion_matrix": [
+              [
+                0,
+                128,
+                0
+              ],
+              [
+                0,
+                153,
+                0
+              ],
+              [
+                0,
+                109,
+                0
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 0,
+              "rate": 0.0,
+              "down_to_up_count": 0,
+              "up_to_down_count": 0,
+              "total_samples": 390,
+              "directional_samples_count": 237,
+              "directional_subset_rate": 0.0
+            },
+            "log_loss": 1.0985932719259233,
+            "brier_score": 0.6673005620512821,
+            "total_samples": 390,
+            "horizon": 5,
+            "model_name": "Majority_h5_test",
+            "metadata": {}
+          },
+          "balanced_accuracy_diff": -0.031797941526253704,
+          "macro_f1_diff": 0.10120415033370242,
+          "log_loss_diff": 0.033240121050050586
+        },
+        "momentum": {
+          "baseline_name": "MomentumBaseline",
+          "metrics": {
+            "accuracy": 0.36923076923076925,
+            "balanced_accuracy": 0.3407612280386161,
+            "macro_precision": 0.3366008193594401,
+            "macro_recall": 0.3407612280386161,
+            "macro_f1": 0.31321223029498596,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.24242424242424243,
+                "recall": 0.125,
+                "f1": 0.16494845360824742,
+                "support": 128
+              },
+              "NEUTRAL": {
+                "precision": 0.40229885057471265,
+                "recall": 0.6862745098039216,
+                "f1": 0.5072463768115941,
+                "support": 153
+              },
+              "UP": {
+                "precision": 0.36507936507936506,
+                "recall": 0.21100917431192662,
+                "f1": 0.26744186046511625,
+                "support": 109
+              }
+            },
+            "confusion_matrix": [
+              [
+                16,
+                90,
+                22
+              ],
+              [
+                30,
+                105,
+                18
+              ],
+              [
+                20,
+                66,
+                23
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 42,
+              "rate": 0.1076923076923077,
+              "down_to_up_count": 22,
+              "up_to_down_count": 20,
+              "total_samples": 390,
+              "directional_samples_count": 237,
+              "directional_subset_rate": 0.17721518987341772
+            },
+            "log_loss": 1.0992040033938346,
+            "brier_score": 0.6669760842302414,
+            "total_samples": 390,
+            "horizon": 5,
+            "model_name": "Momentum_h5_test",
+            "metadata": {}
+          },
+          "balanced_accuracy_diff": -0.03922583623153647,
+          "macro_f1_diff": -0.024162776093880234,
+          "log_loss_diff": 0.032629389582139234
+        }
+      }
+    }
+  },
+  "summary_findings": "Held-out test evaluation completed across horizons h1, h3, and h5. Models generalize with test performance aligning within expected statistical variance of validation results. Signal remains modest and consistent with high market noise, performing close to baseline benchmarks. No trading profitability or directional certainty is implied."
+}

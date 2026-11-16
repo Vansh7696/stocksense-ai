@@ -1,0 +1,148 @@
+{
+  "registry_schema_version": "1.0",
+  "model_id": "logistic_regression_h3_v1.0.0",
+  "model_name": "logistic_regression",
+  "version": "1.0.0",
+  "horizon": 3,
+  "algorithm": "Multinomial Logistic Regression (L2)",
+  "solver": "lbfgs",
+  "hyperparameters": {
+    "C": 0.001,
+    "class_weight": "balanced",
+    "solver": "lbfgs",
+    "max_iter": 1000,
+    "tol": 0.0001,
+    "random_state": 42
+  },
+  "target_type": "open_to_close",
+  "target_threshold_pct": 1.0,
+  "target_definition": "UP (+1) if return > +theta_h, DOWN (-1) if return < -theta_h, NEUTRAL (0) otherwise",
+  "entry_price_convention": "next_session_open (O[t+1])",
+  "exit_price_convention": "horizon_session_close (C[t+h])",
+  "split_methodology": "PurgedGroupedChronologicalSplitter",
+  "split_ratios": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "purge_window_sessions": 3,
+  "embargo_window_sessions": 0,
+  "training_samples": 1885,
+  "validation_samples": 390,
+  "validation_metrics": {
+    "accuracy": 0.382051282051282,
+    "balanced_accuracy": 0.36304609984856473,
+    "macro_precision": 0.3392972275951,
+    "macro_recall": 0.36304609984856473,
+    "macro_f1": 0.304088199382317,
+    "per_class": {
+      "DOWN": {
+        "precision": 0.40425531914893614,
+        "recall": 0.5135135135135135,
+        "f1": 0.4523809523809524,
+        "support": 148
+      },
+      "NEUTRAL": {
+        "precision": 0.25,
+        "recall": 0.008695652173913044,
+        "f1": 0.01680672268907563,
+        "support": 115
+      },
+      "UP": {
+        "precision": 0.36363636363636365,
+        "recall": 0.5669291338582677,
+        "f1": 0.4430769230769231,
+        "support": 127
+      }
+    },
+    "confusion_matrix": [
+      [
+        76,
+        2,
+        70
+      ],
+      [
+        58,
+        1,
+        56
+      ],
+      [
+        54,
+        1,
+        72
+      ]
+    ],
+    "catastrophic_error": {
+      "count": 124,
+      "rate": 0.31794871794871793,
+      "down_to_up_count": 70,
+      "up_to_down_count": 54,
+      "total_samples": 390,
+      "directional_samples_count": 275,
+      "directional_subset_rate": 0.4509090909090909
+    },
+    "log_loss": 1.0952390501648603,
+    "brier_score": 0.6634892522015448,
+    "total_samples": 390,
+    "horizon": 3,
+    "model_name": "LogisticRegression_h3_selected",
+    "metadata": {}
+  },
+  "feature_schema_version": "23_scale_invariant_technical_v1",
+  "feature_names": [
+    "price_to_sma20",
+    "price_to_sma50",
+    "price_to_sma200",
+    "price_to_ema12",
+    "price_to_ema26",
+    "price_to_ema50",
+    "rsi_14",
+    "rsi_normalized",
+    "rsi_slope_5",
+    "macd_hist",
+    "macd_hist_normalized",
+    "bb_percent_b",
+    "bb_zscore",
+    "bb_bandwidth",
+    "atr_pct",
+    "return_1d",
+    "return_5d",
+    "return_21d",
+    "volatility_20d",
+    "relative_volume_20",
+    "trend_alignment",
+    "ma_spread_50_200",
+    "ma_spread_20_50"
+  ],
+  "class_labels": [
+    -1,
+    0,
+    1
+  ],
+  "class_names": [
+    "DOWN",
+    "NEUTRAL",
+    "UP"
+  ],
+  "artifact_filename": "model.joblib",
+  "artifact_sha256": "022b98bbd3c43963190ecd370199185d2ec1ac04bd425747d2bf00253323bb6f",
+  "artifact_size_bytes": 2398,
+  "status": "test_evaluated",
+  "experiment_id": "phase-5c3-lr-tuning",
+  "notes": "Phase 5C.3.7 final held-out test evaluation completed under experiment 'eval_phase_5c3_final_test_20261116'.",
+  "provenance": {
+    "dataset_sha256": "d75a0e0f4e94c0991bbca71e911333b1944e7f064d8f4dd712cffa1688b97170",
+    "dataset_identifier": "canonical_5stocks_v1",
+    "git_commit": "947a3aa26e347b1c3c0270b1d8964bb155797873",
+    "python_version": "3.15.2",
+    "library_versions": {
+      "scikit-learn": "1.9.1",
+      "numpy": "2.5.4",
+      "pandas": "3.1.1",
+      "scipy": "1.18.1",
+      "joblib": "1.6.0"
+    },
+    "training_timestamp_utc": "2026-11-16T13:40:43.096220+00:00"
+  },
+  "created_at_utc": "2026-11-16T13:40:43.096360+00:00"
+}

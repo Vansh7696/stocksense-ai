@@ -1,0 +1,20 @@
+{
+  "experiment_id": "eval_phase_5c3_final_test_20261116",
+  "state": "evaluated",
+  "started_at_utc": "2026-11-16T13:48:52.777944+00:00",
+  "completed_at_utc": "2026-11-16T13:48:57.816337+00:00",
+  "dataset_sha256": "d75a0e0f4e94c0991bbca71e911333b1944e7f064d8f4dd712cffa1688b97170",
+  "model_ids": [
+    "logistic_regression_h1_v1.0.0",
+    "logistic_regression_h3_v1.0.0",
+    "logistic_regression_h5_v1.0.0"
+  ],
+  "model_artifact_hashes": {
+    "logistic_regression_h1_v1.0.0": "5f35a9d74943747559c653af72eab9095ade4b8d5057e8d0aec778be0ea14f87",
+    "logistic_regression_h3_v1.0.0": "022b98bbd3c43963190ecd370199185d2ec1ac04bd425747d2bf00253323bb6f",
+    "logistic_regression_h5_v1.0.0": "c88b46e78ee2ea7f5eb0cd2a7c7ee137bb8835e647e49da5169205c622d22a52"
+  },
+  "results_artifact_path": "/Users/vansh/Documents/stocksense/ml-service/models/evaluations/eval_phase_5c3_final_test_20261116/evaluation_report.json",
+  "results_artifact_sha256": "7860335bbc825c6886de34cc74448881bcc95993a4ec64d52aa6171473e3b932",
+  "error_message": null
+}

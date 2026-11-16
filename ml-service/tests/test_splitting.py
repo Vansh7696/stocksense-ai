@@ -36,9 +36,11 @@ from app.services.features import FeatureEngineeringPipeline
 @pytest.fixture(scope="module")
 def historical_dataset():
     """Loads the authentic 5-stock 3-year historical dataset fixture."""
-    path = "/Users/vansh/.gemini/antigravity/brain/0dd47e33-8dcd-41dc-b48c-008944fca820/scratch/five_stocks_candles.json"
+    path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "data", "historical_candles_5stocks.json")
+    )
     if not os.path.exists(path):
-        pytest.skip("Historical scratch fixture five_stocks_candles.json not available")
+        pytest.skip("Historical canonical fixture historical_candles_5stocks.json not available")
 
     with open(path) as f:
         data = json.load(f)

@@ -46,3 +46,7 @@ pnpm-debug.log*
 .idea/
 *.swp
 *.swo
+
+# Serialized Model Artifacts (joblib binaries)
+*.joblib
+ml-service/models/registry/**/*.joblib
