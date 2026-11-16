@@ -5,6 +5,7 @@ from app.config import settings
 from app.api.health import router as health_router
 from app.api.indicators import router as indicators_router
 from app.api.features import router as features_router
+from app.api.targets import router as targets_router
 
 
 @asynccontextmanager
@@ -38,6 +39,7 @@ app.include_router(health_router, prefix="/api")
 app.include_router(health_router)  # Also expose /health at root for health checks
 app.include_router(indicators_router, prefix="/api")
 app.include_router(features_router, prefix="/api")
+app.include_router(targets_router, prefix="/api")
 
 
 @app.get("/")
