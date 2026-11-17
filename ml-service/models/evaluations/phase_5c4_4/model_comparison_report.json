@@ -1,0 +1,1763 @@
+{
+  "report_id": "phase_5c4_4_model_comparison_report",
+  "created_at_utc": "2026-11-17T15:16:11.764229+00:00",
+  "dataset_identifier": "canonical_5stocks_v1",
+  "dataset_sha256": "d75a0e0f4e94c0991bbca71e911333b1944e7f064d8f4dd712cffa1688b97170",
+  "validation_start_date": "2026-03-12",
+  "validation_end_date": "2026-07-13",
+  "quarantined_test_start_date": "2026-07-14",
+  "quarantined_test_end_date": "2026-11-09",
+  "horizons": {
+    "1": {
+      "horizon": 1,
+      "sample_count": 400,
+      "session_count": 80,
+      "candidates": [
+        {
+          "model_id": "logistic_regression_h1_v1.0.0",
+          "model_family": "logistic_regression",
+          "horizon": 1,
+          "candidate_identifier": "Phase 5C.3 Baseline",
+          "grid_index": null,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "5f35a9d74943747559c653af72eab9095ade4b8d5057e8d0aec778be0ea14f87",
+          "artifact_size_bytes": 2380,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/registry/logistic_regression_h1_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "C": 0.001,
+            "class_weight": null,
+            "solver": "lbfgs",
+            "max_iter": 1000,
+            "tol": 0.0001,
+            "random_state": 42
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.395,
+            "balanced_accuracy": 0.3869920843204893,
+            "macro_precision": 0.41489504647399383,
+            "macro_recall": 0.3869920843204893,
+            "macro_f1": 0.3395609933377916,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.4048582995951417,
+                "recall": 0.6896551724137931,
+                "f1": 0.5102040816326531,
+                "support": 145
+              },
+              "NEUTRAL": {
+                "precision": 0.36363636363636365,
+                "recall": 0.39669421487603307,
+                "f1": 0.37944664031620556,
+                "support": 121
+              },
+              "UP": {
+                "precision": 0.47619047619047616,
+                "recall": 0.07462686567164178,
+                "f1": 0.12903225806451613,
+                "support": 134
+              }
+            },
+            "confusion_matrix": [
+              [
+                100,
+                40,
+                5
+              ],
+              [
+                67,
+                48,
+                6
+              ],
+              [
+                80,
+                44,
+                10
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 85,
+              "rate": 0.2125,
+              "down_to_up_count": 5,
+              "up_to_down_count": 80,
+              "total_samples": 400,
+              "directional_samples_count": 279,
+              "directional_subset_rate": 0.3046594982078853
+            },
+            "log_loss": 1.0882442201494298,
+            "brier_score": 0.6597776827067636,
+            "total_samples": 400,
+            "horizon": 1,
+            "model_name": "logistic_regression",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 145,
+            "NEUTRAL": 121,
+            "UP": 134
+          },
+          "predicted_distribution": {
+            "DOWN": 247,
+            "NEUTRAL": 132,
+            "UP": 21
+          },
+          "catastrophic_error_count": 85,
+          "catastrophic_error_rate_total": 0.2125,
+          "catastrophic_error_rate_directional": 0.3046594982078853,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": true,
+              "observed_value": 0.2125,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 21.25% <= 25.00%"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.386992,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 38.70% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.339561,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.3396 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": true,
+              "observed_value": {
+                "DOWN": 0.689655,
+                "NEUTRAL": 0.396694,
+                "UP": 0.074627
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Per-class recalls: DOWN=68.97%, NEUTRAL=39.67%, UP=7.46%. All > 5.00%"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.088244,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.0882 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.659778,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6598 <= 0.7000"
+            },
+            "all_passed": true,
+            "failed_gate_names": []
+          },
+          "eligibility_status": "eligible",
+          "failed_criteria": [],
+          "is_preferred_research_candidate": false,
+          "is_historical_benchmark": true,
+          "production_readiness": "prohibited",
+          "selection_decision": "historical_benchmark",
+          "selection_rationale": "Eligible historical baseline. Retained for comparison. Not preferred due to severe UP prediction skew (only 21/400 predictions vs 134 actual, UP recall 7.46%) and lower Macro F1 (0.3396 vs XGBoost's 0.3773).",
+          "known_weaknesses": [
+            "Pathological UP prediction suppression (7.46% recall).",
+            "Excessive DOWN bias (247 predicted vs 145 actual)."
+          ]
+        },
+        {
+          "model_id": "random_forest_h1_v1.0.0",
+          "model_family": "random_forest",
+          "horizon": 1,
+          "candidate_identifier": "Champion #107",
+          "grid_index": 107,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "40b3c6f2499d681a8d0af0d12396c99689a35415fa543d3608f389f22889dd68",
+          "artifact_size_bytes": 382174,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/tuning/phase_5c4_3/phase_5c4_3_tuning_campaign/registry/random_forest_h1_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "n_estimators": 300,
+            "max_depth": 6,
+            "min_samples_leaf": 40,
+            "max_features": 0.3,
+            "class_weight": null,
+            "bootstrap": true,
+            "random_state": 42,
+            "grid_index": 107
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.3825,
+            "balanced_accuracy": 0.3693824976003426,
+            "macro_precision": 0.3738824138824139,
+            "macro_recall": 0.3693824976003426,
+            "macro_f1": 0.35208791874941187,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.39316239316239315,
+                "recall": 0.6344827586206897,
+                "f1": 0.4854881266490765,
+                "support": 145
+              },
+              "NEUTRAL": {
+                "precision": 0.3484848484848485,
+                "recall": 0.19008264462809918,
+                "f1": 0.2459893048128342,
+                "support": 121
+              },
+              "UP": {
+                "precision": 0.38,
+                "recall": 0.2835820895522388,
+                "f1": 0.32478632478632474,
+                "support": 134
+              }
+            },
+            "confusion_matrix": [
+              [
+                92,
+                17,
+                36
+              ],
+              [
+                72,
+                23,
+                26
+              ],
+              [
+                70,
+                26,
+                38
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 106,
+              "rate": 0.265,
+              "down_to_up_count": 36,
+              "up_to_down_count": 70,
+              "total_samples": 400,
+              "directional_samples_count": 279,
+              "directional_subset_rate": 0.37992831541218636
+            },
+            "log_loss": 1.0914643117108,
+            "brier_score": 0.6621030018395928,
+            "total_samples": 400,
+            "horizon": 1,
+            "model_name": "random_forest",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 145,
+            "NEUTRAL": 121,
+            "UP": 134
+          },
+          "predicted_distribution": {
+            "DOWN": 234,
+            "NEUTRAL": 66,
+            "UP": 100
+          },
+          "catastrophic_error_count": 106,
+          "catastrophic_error_rate_total": 0.265,
+          "catastrophic_error_rate_directional": 0.37992831541218636,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": false,
+              "observed_value": 0.265,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 26.50% exceeds 25.00% limit"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.369382,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 36.94% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.352088,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.3521 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": true,
+              "observed_value": {
+                "DOWN": 0.634483,
+                "NEUTRAL": 0.190083,
+                "UP": 0.283582
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Per-class recalls: DOWN=63.45%, NEUTRAL=19.01%, UP=28.36%. All > 5.00%"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.091464,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.0915 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.662103,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6621 <= 0.7000"
+            },
+            "all_passed": false,
+            "failed_gate_names": [
+              "catastrophic_error"
+            ]
+          },
+          "eligibility_status": "ineligible",
+          "failed_criteria": [
+            "Catastrophic directional error rate 26.50% exceeds 25.00% limit"
+          ],
+          "is_preferred_research_candidate": false,
+          "is_historical_benchmark": true,
+          "production_readiness": "prohibited",
+          "selection_decision": "rejected",
+          "selection_rationale": "Ineligible. Realized catastrophic directional error rate is 26.50% (106 errors), violating the 25.00% provisional research guardrail.",
+          "known_weaknesses": [
+            "Excessive opposite-direction errors (26.50%).",
+            "High batch inference latency (~61.37 ms)."
+          ]
+        },
+        {
+          "model_id": "xgboost_h1_v1.0.0",
+          "model_family": "xgboost",
+          "horizon": 1,
+          "candidate_identifier": "Champion #147",
+          "grid_index": 147,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "de20b76f50ac3f755be689f9103799153f651b1fe953a3fc5268df9d6898d7fb",
+          "artifact_size_bytes": 55446,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/tuning/phase_5c4_3/phase_5c4_3_tuning_campaign/registry/xgboost_h1_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "learning_rate": 0.05,
+            "max_depth": 4,
+            "subsample": 0.7,
+            "reg_lambda": 5.0,
+            "gamma": 0.1,
+            "colsample_bytree": 0.8,
+            "min_child_weight": 15.0,
+            "objective": "multi:softprob",
+            "num_class": 3,
+            "n_estimators": 46,
+            "random_state": 42,
+            "eval_metric": "mlogloss",
+            "early_stopping_rounds": null,
+            "grid_index": 147
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.385,
+            "balanced_accuracy": 0.37999897917083153,
+            "macro_precision": 0.3844696348484749,
+            "macro_recall": 0.37999897917083153,
+            "macro_f1": 0.37730118680497154,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.3989071038251366,
+                "recall": 0.503448275862069,
+                "f1": 0.4451219512195122,
+                "support": 145
+              },
+              "NEUTRAL": {
+                "precision": 0.33613445378151263,
+                "recall": 0.3305785123966942,
+                "f1": 0.33333333333333337,
+                "support": 121
+              },
+              "UP": {
+                "precision": 0.41836734693877553,
+                "recall": 0.30597014925373134,
+                "f1": 0.353448275862069,
+                "support": 134
+              }
+            },
+            "confusion_matrix": [
+              [
+                73,
+                41,
+                31
+              ],
+              [
+                55,
+                40,
+                26
+              ],
+              [
+                55,
+                38,
+                41
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 86,
+              "rate": 0.215,
+              "down_to_up_count": 31,
+              "up_to_down_count": 55,
+              "total_samples": 400,
+              "directional_samples_count": 279,
+              "directional_subset_rate": 0.30824372759856633
+            },
+            "log_loss": 1.0995444352364732,
+            "brier_score": 0.6670274013112085,
+            "total_samples": 400,
+            "horizon": 1,
+            "model_name": "xgboost",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 145,
+            "NEUTRAL": 121,
+            "UP": 134
+          },
+          "predicted_distribution": {
+            "DOWN": 183,
+            "NEUTRAL": 119,
+            "UP": 98
+          },
+          "catastrophic_error_count": 86,
+          "catastrophic_error_rate_total": 0.215,
+          "catastrophic_error_rate_directional": 0.30824372759856633,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": true,
+              "observed_value": 0.215,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 21.50% <= 25.00%"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.379999,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 38.00% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.377301,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.3773 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": true,
+              "observed_value": {
+                "DOWN": 0.503448,
+                "NEUTRAL": 0.330579,
+                "UP": 0.30597
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Per-class recalls: DOWN=50.34%, NEUTRAL=33.06%, UP=30.60%. All > 5.00%"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.099544,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.0995 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.667027,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6670 <= 0.7000"
+            },
+            "all_passed": true,
+            "failed_gate_names": []
+          },
+          "eligibility_status": "eligible",
+          "failed_criteria": [],
+          "is_preferred_research_candidate": true,
+          "is_historical_benchmark": false,
+          "production_readiness": "prohibited",
+          "selection_decision": "preferred_research_candidate",
+          "selection_rationale": "Eligible and preferred research candidate. Achieves highest Macro F1 (0.3773), complies with 25% catastrophic error guardrail (21.50%), and maintains balanced recall across all regimes (DOWN 50.34%, NEUTRAL 33.06%, UP 30.60%).",
+          "known_weaknesses": [
+            "Moderate false DOWN predictions (39.89% precision)."
+          ]
+        }
+      ],
+      "preferred_candidate_id": "xgboost_h1_v1.0.0",
+      "preferred_candidate_family": "xgboost",
+      "notes": "XGBoost #147 selected for highest Macro F1 (0.3773) and balanced class recall. LR h1 is eligible but exhibits UP suppression."
+    },
+    "3": {
+      "horizon": 3,
+      "sample_count": 390,
+      "session_count": 78,
+      "candidates": [
+        {
+          "model_id": "logistic_regression_h3_v1.0.0",
+          "model_family": "logistic_regression",
+          "horizon": 3,
+          "candidate_identifier": "Phase 5C.3 Baseline",
+          "grid_index": null,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "022b98bbd3c43963190ecd370199185d2ec1ac04bd425747d2bf00253323bb6f",
+          "artifact_size_bytes": 2398,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/registry/logistic_regression_h3_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "C": 0.001,
+            "class_weight": "balanced",
+            "solver": "lbfgs",
+            "max_iter": 1000,
+            "tol": 0.0001,
+            "random_state": 42
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.382051282051282,
+            "balanced_accuracy": 0.36304609984856473,
+            "macro_precision": 0.3392972275951,
+            "macro_recall": 0.36304609984856473,
+            "macro_f1": 0.304088199382317,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.40425531914893614,
+                "recall": 0.5135135135135135,
+                "f1": 0.4523809523809524,
+                "support": 148
+              },
+              "NEUTRAL": {
+                "precision": 0.25,
+                "recall": 0.008695652173913044,
+                "f1": 0.01680672268907563,
+                "support": 115
+              },
+              "UP": {
+                "precision": 0.36363636363636365,
+                "recall": 0.5669291338582677,
+                "f1": 0.4430769230769231,
+                "support": 127
+              }
+            },
+            "confusion_matrix": [
+              [
+                76,
+                2,
+                70
+              ],
+              [
+                58,
+                1,
+                56
+              ],
+              [
+                54,
+                1,
+                72
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 124,
+              "rate": 0.31794871794871793,
+              "down_to_up_count": 70,
+              "up_to_down_count": 54,
+              "total_samples": 390,
+              "directional_samples_count": 275,
+              "directional_subset_rate": 0.4509090909090909
+            },
+            "log_loss": 1.0952390501648603,
+            "brier_score": 0.6634892522015448,
+            "total_samples": 390,
+            "horizon": 3,
+            "model_name": "logistic_regression",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 148,
+            "NEUTRAL": 115,
+            "UP": 127
+          },
+          "predicted_distribution": {
+            "DOWN": 188,
+            "NEUTRAL": 4,
+            "UP": 198
+          },
+          "catastrophic_error_count": 124,
+          "catastrophic_error_rate_total": 0.31794871794871793,
+          "catastrophic_error_rate_directional": 0.4509090909090909,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": false,
+              "observed_value": 0.317949,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 31.79% exceeds 25.00% limit"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.363046,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 36.30% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.304088,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.3041 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": false,
+              "observed_value": {
+                "DOWN": 0.513514,
+                "NEUTRAL": 0.008696,
+                "UP": 0.566929
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Failed class recall floor (<= 5.00%): ['NEUTRAL']"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.095239,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.0952 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.663489,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6635 <= 0.7000"
+            },
+            "all_passed": false,
+            "failed_gate_names": [
+              "catastrophic_error",
+              "per_class_recall"
+            ]
+          },
+          "eligibility_status": "ineligible",
+          "failed_criteria": [
+            "Catastrophic directional error rate 31.79% exceeds 25.00% limit",
+            "Failed class recall floor (<= 5.00%): ['NEUTRAL']"
+          ],
+          "is_preferred_research_candidate": false,
+          "is_historical_benchmark": true,
+          "production_readiness": "prohibited",
+          "selection_decision": "rejected",
+          "selection_rationale": "Ineligible. Violates 25% catastrophic error guardrail (31.79%, 124 errors) and collapses completely on NEUTRAL recall (0.87%, only 1/115 identified).",
+          "known_weaknesses": [
+            "Severe catastrophic error rate (31.79%).",
+            "Total NEUTRAL collapse (0.87% recall)."
+          ]
+        },
+        {
+          "model_id": "random_forest_h3_v1.0.0",
+          "model_family": "random_forest",
+          "horizon": 3,
+          "candidate_identifier": "Champion #18",
+          "grid_index": 18,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "4386cc1f5c0f7ae0bcab7c25b81adc8b20364798753c8e6b9017779d828a0af3",
+          "artifact_size_bytes": 135088,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/tuning/phase_5c4_3/phase_5c4_3_tuning_campaign/registry/random_forest_h3_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "n_estimators": 100,
+            "max_depth": 5,
+            "min_samples_leaf": 15,
+            "max_features": "sqrt",
+            "class_weight": null,
+            "bootstrap": true,
+            "random_state": 42,
+            "grid_index": 18
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.3717948717948718,
+            "balanced_accuracy": 0.36592259839435465,
+            "macro_precision": 0.38818142343978207,
+            "macro_recall": 0.36592259839435465,
+            "macro_f1": 0.3583809418305928,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.3877551020408163,
+                "recall": 0.38513513513513514,
+                "f1": 0.3864406779661017,
+                "support": 148
+              },
+              "NEUTRAL": {
+                "precision": 0.43636363636363634,
+                "recall": 0.20869565217391303,
+                "f1": 0.2823529411764706,
+                "support": 115
+              },
+              "UP": {
+                "precision": 0.3404255319148936,
+                "recall": 0.5039370078740157,
+                "f1": 0.40634920634920635,
+                "support": 127
+              }
+            },
+            "confusion_matrix": [
+              [
+                57,
+                17,
+                74
+              ],
+              [
+                41,
+                24,
+                50
+              ],
+              [
+                49,
+                14,
+                64
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 123,
+              "rate": 0.3153846153846154,
+              "down_to_up_count": 74,
+              "up_to_down_count": 49,
+              "total_samples": 390,
+              "directional_samples_count": 275,
+              "directional_subset_rate": 0.44727272727272727
+            },
+            "log_loss": 1.1163297153715788,
+            "brier_score": 0.678052742510566,
+            "total_samples": 390,
+            "horizon": 3,
+            "model_name": "random_forest",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 148,
+            "NEUTRAL": 115,
+            "UP": 127
+          },
+          "predicted_distribution": {
+            "DOWN": 147,
+            "NEUTRAL": 55,
+            "UP": 188
+          },
+          "catastrophic_error_count": 123,
+          "catastrophic_error_rate_total": 0.3153846153846154,
+          "catastrophic_error_rate_directional": 0.44727272727272727,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": false,
+              "observed_value": 0.315385,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 31.54% exceeds 25.00% limit"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.365923,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 36.59% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.358381,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.3584 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": true,
+              "observed_value": {
+                "DOWN": 0.385135,
+                "NEUTRAL": 0.208696,
+                "UP": 0.503937
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Per-class recalls: DOWN=38.51%, NEUTRAL=20.87%, UP=50.39%. All > 5.00%"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.11633,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.1163 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.678053,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6781 <= 0.7000"
+            },
+            "all_passed": false,
+            "failed_gate_names": [
+              "catastrophic_error"
+            ]
+          },
+          "eligibility_status": "ineligible",
+          "failed_criteria": [
+            "Catastrophic directional error rate 31.54% exceeds 25.00% limit"
+          ],
+          "is_preferred_research_candidate": false,
+          "is_historical_benchmark": true,
+          "production_readiness": "prohibited",
+          "selection_decision": "rejected",
+          "selection_rationale": "Ineligible. Violates 25% catastrophic error guardrail (31.54%, 123 errors) despite strong nominal Macro F1 (0.3584).",
+          "known_weaknesses": [
+            "Severe catastrophic error rate (31.54%)."
+          ]
+        },
+        {
+          "model_id": "xgboost_h3_v1.0.0",
+          "model_family": "xgboost",
+          "horizon": 3,
+          "candidate_identifier": "Champion #121",
+          "grid_index": 121,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "cd99702a67888c4cc449a82c58d2ee420d661229323bb883f052dbf839896dbc",
+          "artifact_size_bytes": 15661,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/tuning/phase_5c4_3/phase_5c4_3_tuning_campaign/registry/xgboost_h3_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "learning_rate": 0.05,
+            "max_depth": 2,
+            "subsample": 0.85,
+            "reg_lambda": 5.0,
+            "gamma": 0.5,
+            "colsample_bytree": 0.8,
+            "min_child_weight": 15.0,
+            "objective": "multi:softprob",
+            "num_class": 3,
+            "n_estimators": 26,
+            "random_state": 42,
+            "eval_metric": "mlogloss",
+            "early_stopping_rounds": null,
+            "grid_index": 121
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.3435897435897436,
+            "balanced_accuracy": 0.3629697653833224,
+            "macro_precision": 0.3911823549504709,
+            "macro_recall": 0.3629697653833224,
+            "macro_f1": 0.3052024350655394,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.4074074074074074,
+                "recall": 0.22297297297297297,
+                "f1": 0.28820960698689957,
+                "support": 148
+              },
+              "NEUTRAL": {
+                "precision": 0.3115942028985507,
+                "recall": 0.7478260869565218,
+                "f1": 0.4398976982097187,
+                "support": 115
+              },
+              "UP": {
+                "precision": 0.45454545454545453,
+                "recall": 0.11811023622047244,
+                "f1": 0.1875,
+                "support": 127
+              }
+            },
+            "confusion_matrix": [
+              [
+                33,
+                103,
+                12
+              ],
+              [
+                23,
+                86,
+                6
+              ],
+              [
+                25,
+                87,
+                15
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 37,
+              "rate": 0.09487179487179487,
+              "down_to_up_count": 12,
+              "up_to_down_count": 25,
+              "total_samples": 390,
+              "directional_samples_count": 275,
+              "directional_subset_rate": 0.13454545454545455
+            },
+            "log_loss": 1.1026364531705695,
+            "brier_score": 0.6692026733810834,
+            "total_samples": 390,
+            "horizon": 3,
+            "model_name": "xgboost",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 148,
+            "NEUTRAL": 115,
+            "UP": 127
+          },
+          "predicted_distribution": {
+            "DOWN": 81,
+            "NEUTRAL": 276,
+            "UP": 33
+          },
+          "catastrophic_error_count": 37,
+          "catastrophic_error_rate_total": 0.09487179487179487,
+          "catastrophic_error_rate_directional": 0.13454545454545455,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": true,
+              "observed_value": 0.094872,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 9.49% <= 25.00%"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.36297,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 36.30% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.305202,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.3052 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": true,
+              "observed_value": {
+                "DOWN": 0.222973,
+                "NEUTRAL": 0.747826,
+                "UP": 0.11811
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Per-class recalls: DOWN=22.30%, NEUTRAL=74.78%, UP=11.81%. All > 5.00%"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.102636,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.1026 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.669203,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6692 <= 0.7000"
+            },
+            "all_passed": true,
+            "failed_gate_names": []
+          },
+          "eligibility_status": "eligible",
+          "failed_criteria": [],
+          "is_preferred_research_candidate": true,
+          "is_historical_benchmark": false,
+          "production_readiness": "prohibited",
+          "selection_decision": "preferred_research_candidate",
+          "selection_rationale": "Eligible and preferred research candidate. Sole eligible candidate at h3. Reduces catastrophic errors by 70% vs LR and RF (37 errors, 9.49% rate), while preserving compliant recall across all 3 classes.",
+          "known_weaknesses": [
+            "High cash/neutral conservatism: NEUTRAL recall is 74.78%, limiting active participation."
+          ]
+        }
+      ],
+      "preferred_candidate_id": "xgboost_h3_v1.0.0",
+      "preferred_candidate_family": "xgboost",
+      "notes": "XGBoost #121 selected as sole eligible candidate. Exceptional 70% error reduction (9.49% catastrophic rate) with 74.78% NEUTRAL recall."
+    },
+    "5": {
+      "horizon": 5,
+      "sample_count": 380,
+      "session_count": 76,
+      "candidates": [
+        {
+          "model_id": "logistic_regression_h5_v1.0.0",
+          "model_family": "logistic_regression",
+          "horizon": 5,
+          "candidate_identifier": "Phase 5C.3 Baseline",
+          "grid_index": null,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "c88b46e78ee2ea7f5eb0cd2a7c7ee137bb8835e647e49da5169205c622d22a52",
+          "artifact_size_bytes": 2394,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/registry/logistic_regression_h5_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "C": 0.01,
+            "class_weight": "balanced",
+            "solver": "lbfgs",
+            "max_iter": 1000,
+            "tol": 0.0001,
+            "random_state": 42
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.3605263157894737,
+            "balanced_accuracy": 0.3586744697979403,
+            "macro_precision": 0.37402663934426233,
+            "macro_recall": 0.3586744697979403,
+            "macro_f1": 0.2949558427198364,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.40437158469945356,
+                "recall": 0.5103448275862069,
+                "f1": 0.45121951219512196,
+                "support": 145
+              },
+              "NEUTRAL": {
+                "precision": 0.4,
+                "recall": 0.016129032258064516,
+                "f1": 0.031007751937984496,
+                "support": 124
+              },
+              "UP": {
+                "precision": 0.3177083333333333,
+                "recall": 0.5495495495495496,
+                "f1": 0.40264026402640263,
+                "support": 111
+              }
+            },
+            "confusion_matrix": [
+              [
+                74,
+                2,
+                69
+              ],
+              [
+                60,
+                2,
+                62
+              ],
+              [
+                49,
+                1,
+                61
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 118,
+              "rate": 0.3105263157894737,
+              "down_to_up_count": 69,
+              "up_to_down_count": 49,
+              "total_samples": 380,
+              "directional_samples_count": 256,
+              "directional_subset_rate": 0.4609375
+            },
+            "log_loss": 1.1463507292527624,
+            "brier_score": 0.6903545459493079,
+            "total_samples": 380,
+            "horizon": 5,
+            "model_name": "logistic_regression",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 145,
+            "NEUTRAL": 124,
+            "UP": 111
+          },
+          "predicted_distribution": {
+            "DOWN": 183,
+            "NEUTRAL": 5,
+            "UP": 192
+          },
+          "catastrophic_error_count": 118,
+          "catastrophic_error_rate_total": 0.3105263157894737,
+          "catastrophic_error_rate_directional": 0.4609375,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": false,
+              "observed_value": 0.310526,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 31.05% exceeds 25.00% limit"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.358674,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 35.87% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.294956,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.2950 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": false,
+              "observed_value": {
+                "DOWN": 0.510345,
+                "NEUTRAL": 0.016129,
+                "UP": 0.54955
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Failed class recall floor (<= 5.00%): ['NEUTRAL']"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.146351,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.1464 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.690355,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6904 <= 0.7000"
+            },
+            "all_passed": false,
+            "failed_gate_names": [
+              "catastrophic_error",
+              "per_class_recall"
+            ]
+          },
+          "eligibility_status": "ineligible",
+          "failed_criteria": [
+            "Catastrophic directional error rate 31.05% exceeds 25.00% limit",
+            "Failed class recall floor (<= 5.00%): ['NEUTRAL']"
+          ],
+          "is_preferred_research_candidate": false,
+          "is_historical_benchmark": true,
+          "production_readiness": "prohibited",
+          "selection_decision": "rejected",
+          "selection_rationale": "Ineligible. Violates 25% catastrophic error guardrail (31.05%, 118 errors) and collapses on NEUTRAL recall (1.61%, 2/124 identified).",
+          "known_weaknesses": [
+            "Severe catastrophic error rate (31.05%).",
+            "Total NEUTRAL collapse (1.61% recall)."
+          ]
+        },
+        {
+          "model_id": "random_forest_h5_v1.0.0",
+          "model_family": "random_forest",
+          "horizon": 5,
+          "candidate_identifier": "Champion #33",
+          "grid_index": 33,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "31f38a811f91cec56135a1ce4d288693e5261a5a1922a317913a15ef32e0c57a",
+          "artifact_size_bytes": 128072,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/tuning/phase_5c4_3/phase_5c4_3_tuning_campaign/registry/random_forest_h5_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "n_estimators": 100,
+            "max_depth": 6,
+            "min_samples_leaf": 40,
+            "max_features": "sqrt",
+            "class_weight": null,
+            "bootstrap": true,
+            "random_state": 42,
+            "grid_index": 33
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.34210526315789475,
+            "balanced_accuracy": 0.3591406200416212,
+            "macro_precision": 0.338699494949495,
+            "macro_recall": 0.3591406200416212,
+            "macro_f1": 0.3264828032363369,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.32727272727272727,
+                "recall": 0.12413793103448276,
+                "f1": 0.17999999999999997,
+                "support": 145
+              },
+              "NEUTRAL": {
+                "precision": 0.3575757575757576,
+                "recall": 0.47580645161290325,
+                "f1": 0.40830449826989623,
+                "support": 124
+              },
+              "UP": {
+                "precision": 0.33125,
+                "recall": 0.4774774774774775,
+                "f1": 0.39114391143911437,
+                "support": 111
+              }
+            },
+            "confusion_matrix": [
+              [
+                18,
+                71,
+                56
+              ],
+              [
+                14,
+                59,
+                51
+              ],
+              [
+                23,
+                35,
+                53
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 79,
+              "rate": 0.20789473684210527,
+              "down_to_up_count": 56,
+              "up_to_down_count": 23,
+              "total_samples": 380,
+              "directional_samples_count": 256,
+              "directional_subset_rate": 0.30859375
+            },
+            "log_loss": 1.138474926164051,
+            "brier_score": 0.6911586595498757,
+            "total_samples": 380,
+            "horizon": 5,
+            "model_name": "random_forest",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 145,
+            "NEUTRAL": 124,
+            "UP": 111
+          },
+          "predicted_distribution": {
+            "DOWN": 55,
+            "NEUTRAL": 165,
+            "UP": 160
+          },
+          "catastrophic_error_count": 79,
+          "catastrophic_error_rate_total": 0.20789473684210527,
+          "catastrophic_error_rate_directional": 0.30859375,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": true,
+              "observed_value": 0.207895,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 20.79% <= 25.00%"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.359141,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 35.91% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.326483,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.3265 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": true,
+              "observed_value": {
+                "DOWN": 0.124138,
+                "NEUTRAL": 0.475806,
+                "UP": 0.477477
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Per-class recalls: DOWN=12.41%, NEUTRAL=47.58%, UP=47.75%. All > 5.00%"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.138475,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.1385 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.691159,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6912 <= 0.7000"
+            },
+            "all_passed": true,
+            "failed_gate_names": []
+          },
+          "eligibility_status": "eligible",
+          "failed_criteria": [],
+          "is_preferred_research_candidate": true,
+          "is_historical_benchmark": false,
+          "production_readiness": "prohibited",
+          "selection_decision": "preferred_research_candidate",
+          "selection_rationale": "Eligible and preferred research candidate. Sole eligible candidate at h5. Achieves highest Macro F1 (0.3265), passes 25% catastrophic error guardrail (20.79%), and satisfies all per-class recall floors (DOWN 12.41% > 5.00%).",
+          "known_weaknesses": [
+            "Relatively weak DOWN recall (12.41%, 18/145)."
+          ]
+        },
+        {
+          "model_id": "xgboost_h5_v1.0.0",
+          "model_family": "xgboost",
+          "horizon": 5,
+          "candidate_identifier": "Champion #68",
+          "grid_index": 68,
+          "artifact_filename": "model.joblib",
+          "artifact_sha256": "f416a10dbf07c7759a1ae71809bb4d4a1c891f167b588030cfa4ed5509793388",
+          "artifact_size_bytes": 22839,
+          "metadata_path": "/Users/vansh/Documents/stocksense/ml-service/models/tuning/phase_5c4_3/phase_5c4_3_tuning_campaign/registry/xgboost_h5_v1.0.0/metadata.json",
+          "hyperparameters": {
+            "learning_rate": 0.03,
+            "max_depth": 2,
+            "subsample": 0.85,
+            "reg_lambda": 5.0,
+            "gamma": 1.0,
+            "colsample_bytree": 0.8,
+            "min_child_weight": 15.0,
+            "objective": "multi:softprob",
+            "num_class": 3,
+            "n_estimators": 49,
+            "random_state": 42,
+            "eval_metric": "mlogloss",
+            "early_stopping_rounds": null,
+            "grid_index": 68
+          },
+          "feature_names": [
+            "price_to_sma20",
+            "price_to_sma50",
+            "price_to_sma200",
+            "price_to_ema12",
+            "price_to_ema26",
+            "price_to_ema50",
+            "rsi_14",
+            "rsi_normalized",
+            "rsi_slope_5",
+            "macd_hist",
+            "macd_hist_normalized",
+            "bb_percent_b",
+            "bb_zscore",
+            "bb_bandwidth",
+            "atr_pct",
+            "return_1d",
+            "return_5d",
+            "return_21d",
+            "volatility_20d",
+            "relative_volume_20",
+            "trend_alignment",
+            "ma_spread_50_200",
+            "ma_spread_20_50"
+          ],
+          "metrics": {
+            "accuracy": 0.34210526315789475,
+            "balanced_accuracy": 0.3614428109978722,
+            "macro_precision": 0.35850820317906457,
+            "macro_recall": 0.3614428109978722,
+            "macro_f1": 0.2880950265114488,
+            "per_class": {
+              "DOWN": {
+                "precision": 0.4,
+                "recall": 0.027586206896551724,
+                "f1": 0.05161290322580645,
+                "support": 145
+              },
+              "NEUTRAL": {
+                "precision": 0.3472803347280335,
+                "recall": 0.6693548387096774,
+                "f1": 0.4573002754820937,
+                "support": 124
+              },
+              "UP": {
+                "precision": 0.3282442748091603,
+                "recall": 0.38738738738738737,
+                "f1": 0.35537190082644626,
+                "support": 111
+              }
+            },
+            "confusion_matrix": [
+              [
+                4,
+                92,
+                49
+              ],
+              [
+                2,
+                83,
+                39
+              ],
+              [
+                4,
+                64,
+                43
+              ]
+            ],
+            "catastrophic_error": {
+              "count": 53,
+              "rate": 0.1394736842105263,
+              "down_to_up_count": 49,
+              "up_to_down_count": 4,
+              "total_samples": 380,
+              "directional_samples_count": 256,
+              "directional_subset_rate": 0.20703125
+            },
+            "log_loss": 1.1304544107873444,
+            "brier_score": 0.6867610740195889,
+            "total_samples": 380,
+            "horizon": 5,
+            "model_name": "xgboost",
+            "metadata": {}
+          },
+          "actual_distribution": {
+            "DOWN": 145,
+            "NEUTRAL": 124,
+            "UP": 111
+          },
+          "predicted_distribution": {
+            "DOWN": 10,
+            "NEUTRAL": 239,
+            "UP": 131
+          },
+          "catastrophic_error_count": 53,
+          "catastrophic_error_rate_total": 0.1394736842105263,
+          "catastrophic_error_rate_directional": 0.20703125,
+          "gate_results": {
+            "catastrophic_error_gate": {
+              "gate_name": "catastrophic_error",
+              "passed": true,
+              "observed_value": 0.139474,
+              "threshold_or_target": 0.25,
+              "operator": "<=",
+              "details": "Catastrophic directional error rate 13.95% <= 25.00%"
+            },
+            "balanced_accuracy_gate": {
+              "gate_name": "balanced_accuracy",
+              "passed": true,
+              "observed_value": 0.361443,
+              "threshold_or_target": 0.3333,
+              "operator": ">",
+              "details": "Balanced accuracy 36.14% > 33.33%"
+            },
+            "macro_f1_gate": {
+              "gate_name": "macro_f1",
+              "passed": true,
+              "observed_value": 0.288095,
+              "threshold_or_target": 0.28,
+              "operator": ">=",
+              "details": "Macro F1 0.2881 >= 0.2800"
+            },
+            "per_class_recall_gate": {
+              "gate_name": "per_class_recall",
+              "passed": false,
+              "observed_value": {
+                "DOWN": 0.027586,
+                "NEUTRAL": 0.669355,
+                "UP": 0.387387
+              },
+              "threshold_or_target": 0.05,
+              "operator": ">",
+              "details": "Failed class recall floor (<= 5.00%): ['DOWN']"
+            },
+            "log_loss_gate": {
+              "gate_name": "log_loss",
+              "passed": true,
+              "observed_value": 1.130454,
+              "threshold_or_target": 1.15,
+              "operator": "<=",
+              "details": "Log loss 1.1305 <= 1.1500"
+            },
+            "brier_score_gate": {
+              "gate_name": "brier_score",
+              "passed": true,
+              "observed_value": 0.686761,
+              "threshold_or_target": 0.7,
+              "operator": "<=",
+              "details": "Multiclass Brier score 0.6868 <= 0.7000"
+            },
+            "all_passed": false,
+            "failed_gate_names": [
+              "per_class_recall"
+            ]
+          },
+          "eligibility_status": "ineligible",
+          "failed_criteria": [
+            "Failed class recall floor (<= 5.00%): ['DOWN']"
+          ],
+          "is_preferred_research_candidate": false,
+          "is_historical_benchmark": true,
+          "production_readiness": "prohibited",
+          "selection_decision": "rejected",
+          "selection_rationale": "Ineligible. Fails per-class recall floor: DOWN recall collapsed to 2.76% (only 4/145 down instances identified <= 5.00%). Disqualified from preferred status.",
+          "known_weaknesses": [
+            "Extreme downside blindness (DOWN recall 2.76%)."
+          ]
+        }
+      ],
+      "preferred_candidate_id": "random_forest_h5_v1.0.0",
+      "preferred_candidate_family": "random_forest",
+      "notes": "Random Forest #33 selected as sole eligible candidate (Macro F1 0.3265, DOWN recall 12.41%). XGBoost #68 ineligible due to DOWN recall collapse (2.76%)."
+    }
+  },
+  "provisional_latency_summary": {
+    "status": "PROVISIONAL",
+    "environment": {
+      "hardware": "Apple Silicon (ARM64)",
+      "python": "3.14.9",
+      "scikit_learn": "1.9.1",
+      "xgboost": "3.4.1",
+      "numpy": "2.5.4",
+      "joblib": "1.6.0"
+    },
+    "methodology": "10 warm-up runs, 100 timed iterations using time.perf_counter(). Includes feature schema validation and scaling.",
+    "caveat": "Provisional workstation measurements. Single-sample inference is dominated by Python overhead. Not used as primary selection disqualifier.",
+    "batch_means_ms": {
+      "h1_lr": 0.73,
+      "h1_rf": 61.37,
+      "h1_xgb": 1.11,
+      "h3_lr": 0.72,
+      "h3_rf": 27.0,
+      "h3_xgb": 1.22,
+      "h5_lr": 0.92,
+      "h5_rf": 27.79,
+      "h5_xgb": 0.99
+    }
+  },
+  "governance_notes": "MANDATORY GOVERNANCE DIRECTIVE: NO MODEL IS APPROVED FOR PRODUCTION DEPLOYMENT. All candidate models are evaluated solely on the outer validation partition (2026-03-12 to 2026-07-13). The Phase 5C.3 held-out test partition (2026-07-14 to 2026-11-09) is permanently consumed and was NOT accessed. True out-of-sample certification requires collecting genuinely new market observations occurring after 2026-11-09."
+}
