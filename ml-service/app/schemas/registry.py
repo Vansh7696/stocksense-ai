@@ -51,7 +51,7 @@ class ModelRegistryMetadata(BaseModel):
     version: str = Field(..., description="Semantic model version string (e.g., 1.0.0)")
     horizon: int = Field(..., ge=1, le=10, description="Prediction horizon h in trading sessions")
     algorithm: str = Field(..., description="Full descriptive name of the model algorithm")
-    solver: str = Field(..., description="Optimization solver used during training")
+    solver: Optional[str] = Field(default="not_applicable", description="Optimization solver used during training")
     hyperparameters: Dict[str, Any] = Field(..., description="Hyperparameter configuration dictionary")
 
     # Target & labeling provenance

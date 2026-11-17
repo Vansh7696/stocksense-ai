@@ -32,6 +32,7 @@ from app.schemas.metrics import ClassificationMetrics
 from app.services.logistic_regression import (
     MultinomialLogisticRegression,
     EXTERNAL_LABELS,
+    EXTERNAL_TO_INTERNAL,
 )
 from app.services.splitting import (
     APPROVED_FEATURE_ALLOWLIST,
@@ -44,6 +45,7 @@ from app.services.metrics import (
     CLASS_LABELS,
     CLASS_NAMES,
     compute_classification_metrics,
+    validate_and_normalize_probabilities,
 )
 
 
@@ -106,13 +108,14 @@ class RuntimeCompatibilityError(RegistryError):
 # Runtime Compatibility Policy & Verification
 # =============================================================================
 
-def check_runtime_compatibility(provenance: ModelProvenance) -> None:
+def check_runtime_compatibility(provenance: ModelProvenance, algorithm: Optional[str] = None) -> None:
     """
     Enforces deterministic runtime compatibility policy:
     1. Python major.minor must match (patch difference is tolerated).
     2. scikit-learn major.minor must match (patch differences emit UserWarning;
        different minor versions fail because scikit-learn does not guarantee pickle compatibility).
     3. joblib major.minor must match (patch differences emit UserWarning).
+    4. xgboost major.minor must match when model is an XGBoost model.
     """
     # 1. Python version check
     prov_py_parts = provenance.python_version.split(".")
@@ -156,6 +159,45 @@ def check_runtime_compatibility(provenance: ModelProvenance) -> None:
                 f"{joblib.__version__} ({curr_jl_parts[0]}.{curr_jl_parts[1]})."
             )
 
+    # 4. xgboost version check (enforced when algorithm indicates xgboost or xgboost is present in model provenance and algorithm is not explicitly non-xgboost)
+    prov_xgb = provenance.library_versions.get("xgboost")
+    if algorithm:
+        is_xgb_model = "xgboost" in algorithm.lower()
+    else:
+        is_xgb_model = prov_xgb is not None
+
+    if prov_xgb and is_xgb_model:
+        try:
+            import xgboost as xgb
+            prov_xgb_parts = prov_xgb.split(".")
+            curr_xgb_parts = xgb.__version__.split(".")
+            if (prov_xgb_parts[0], prov_xgb_parts[1]) != (curr_xgb_parts[0], curr_xgb_parts[1]):
+                raise RuntimeCompatibilityError(
+                    f"Incompatible xgboost version: model was serialized with xgboost {prov_xgb} "
+                    f"(major.minor {prov_xgb_parts[0]}.{prov_xgb_parts[1]}), but current runtime has "
+                    f"{xgb.__version__} ({curr_xgb_parts[0]}.{curr_xgb_parts[1]})."
+                )
+            elif prov_xgb != xgb.__version__:
+                warnings.warn(
+                    f"xgboost patch release difference: model serialized with {prov_xgb}, "
+                    f"current runtime has {xgb.__version__}.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        except (ImportError, OSError) as exc:
+            raise RuntimeCompatibilityError(
+                f"XGBoost model requires xgboost runtime, but xgboost is unavailable: {exc}"
+            ) from exc
+
+
+def is_estimator_fitted(estimator: Any) -> bool:
+    """Checks whether an estimator is fitted."""
+    if hasattr(estimator, "is_fitted_"):
+        return bool(getattr(estimator, "is_fitted_"))
+    if hasattr(estimator, "classes_") or hasattr(estimator, "estimators_") or hasattr(estimator, "n_features_in_"):
+        return True
+    return False
+
 
 # =============================================================================
 # Inference Pipeline Wrapper
@@ -163,22 +205,25 @@ def check_runtime_compatibility(provenance: ModelProvenance) -> None:
 
 class RegisteredInferenceModel:
     """
-    Unified inference pipeline bundling a fitted estimator with its fitted StandardScaler.
+    Unified inference pipeline bundling a fitted estimator with an optional fitted StandardScaler.
 
     Guarantees:
     - Input features are strictly validated against the approved 23-feature schema.
-    - Standard scaling parameters (mean, scale) are applied automatically without refitting.
+    - Missing and unexpected feature columns are rejected.
     - Column reordering immunity: DataFrames with columns in arbitrary order are safely realigned.
+    - Standard scaling parameters (mean, scale) are applied automatically when a scaler is present.
+    - Direct raw feature pass-through when scaler is None (for Random Forest, XGBoost, and other tree ensembles).
     - Output predictions and probabilities match canonical 3-class semantics:
         Classes: DOWN (-1), NEUTRAL (0), UP (+1)
         Probabilities: shape (N, 3) ordered [P(DOWN), P(NEUTRAL), P(UP)]
-    - Estimator and scaler cannot become mismatched or separated.
+    - Robust alignment and validation of probability matrices, even if an estimator was trained without
+      observing all three classes.
     """
 
     def __init__(
         self,
-        estimator: MultinomialLogisticRegression,
-        scaler: StandardScaler,
+        estimator: Any,
+        scaler: Optional[StandardScaler],
         metadata: ModelRegistryMetadata,
     ):
         self.estimator = estimator
@@ -190,14 +235,32 @@ class RegisteredInferenceModel:
         self.version = metadata.version
 
     def _validate_and_scale(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
-        """Validates incoming feature columns, order, and finiteness, then scales using the fitted scaler."""
+        """Validates incoming feature columns, order, and finiteness, then scales if a scaler is configured."""
         if isinstance(X, pd.DataFrame):
+            # Check for duplicate column names
+            if X.columns.duplicated().any():
+                dup_cols = X.columns[X.columns.duplicated()].unique().tolist()
+                raise IncompatibleFeatureError(
+                    f"Input DataFrame contains duplicate feature columns: {dup_cols}. "
+                    f"All feature column names must be distinct."
+                )
             # Verify exact feature column presence
             missing_cols = [c for c in self.feature_names if c not in X.columns]
             if missing_cols:
                 raise IncompatibleFeatureError(
                     f"Input DataFrame is missing required features: {missing_cols[:5]}. "
                     f"Expected exactly {len(self.feature_names)} features: {self.feature_names}."
+                )
+            unexpected_cols = [c for c in X.columns if c not in self.feature_names]
+            if unexpected_cols:
+                raise IncompatibleFeatureError(
+                    f"Input DataFrame contains unexpected features not in approved schema: {unexpected_cols[:5]}. "
+                    f"Expected only the approved {len(self.feature_names)} features."
+                )
+            if len(X.columns) != len(self.feature_names):
+                raise IncompatibleFeatureError(
+                    f"Input DataFrame feature count mismatch: got {len(X.columns)} columns, "
+                    f"expected exactly {len(self.feature_names)}."
                 )
             # Reorder columns strictly according to the registered feature ordering
             X_ordered = X[self.feature_names].to_numpy(dtype=np.float64)
@@ -214,24 +277,70 @@ class RegisteredInferenceModel:
         if not np.all(np.isfinite(X_ordered)):
             raise ValueError("Input feature matrix contains non-finite values (NaN or Inf).")
 
-        # Standardize using the frozen scaler parameters (transform only, no refit)
-        scaled = self.scaler.transform(X_ordered)
-        return scaled
+        # Standardize using the frozen scaler parameters if configured; otherwise pass raw features
+        if self.scaler is not None:
+            scaled = self.scaler.transform(X_ordered)
+            return scaled
+        return X_ordered
 
     def predict(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
         """
         Generates discrete 3-class predictions {-1, 0, 1} on input features.
         """
-        X_scaled = self._validate_and_scale(X)
-        return self.estimator.predict(X_scaled)
+        X_proc = self._validate_and_scale(X)
+        preds = self.estimator.predict(X_proc)
+        preds_arr = np.asarray(preds, dtype=np.int64)
+
+        if preds_arr.ndim != 1 or len(preds_arr) != len(X_proc):
+            raise ValueError(f"Estimator returned invalid prediction shape: {preds_arr.shape}")
+
+        unique_preds = set(np.unique(preds_arr))
+        if not unique_preds.issubset(set(EXTERNAL_LABELS)):
+            # If estimator outputs internal classes {0, 1, 2}, map them to external {-1, 0, 1}
+            INTERNAL_TO_EXTERNAL = {0: -1, 1: 0, 2: 1}
+            if unique_preds.issubset({0, 1, 2}):
+                preds_arr = np.array([INTERNAL_TO_EXTERNAL[p] for p in preds_arr], dtype=np.int64)
+            else:
+                raise ValueError(f"Estimator returned invalid class predictions: {sorted(list(unique_preds))}")
+
+        return preds_arr
 
     def predict_proba(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
         """
         Generates calibrated 3-class probability distribution of shape (N, 3):
         [P(DOWN), P(NEUTRAL), P(UP)].
         """
-        X_scaled = self._validate_and_scale(X)
-        return self.estimator.predict_proba(X_scaled)
+        X_proc = self._validate_and_scale(X)
+        raw_probs = self.estimator.predict_proba(X_proc)
+        raw_probs = np.asarray(raw_probs, dtype=np.float64)
+
+        if raw_probs.ndim != 2:
+            raise ValueError(f"Estimator returned invalid probability dimensions: {raw_probs.ndim}D")
+
+        # Map and align probabilities to canonical 3 classes if estimator observed fewer classes
+        est_classes = getattr(self.estimator, "classes_", None)
+        if raw_probs.shape[1] == 3 and (est_classes is None or list(est_classes) in ([-1, 0, 1], [0, 1, 2])):
+            aligned_probs = raw_probs
+        elif est_classes is not None:
+            # Map observed classes to canonical 3 columns: 0 (DOWN), 1 (NEUTRAL), 2 (UP)
+            aligned_probs = np.zeros((len(X_proc), 3), dtype=np.float64)
+            is_external = any(c < 0 for c in est_classes)
+            for idx, cls in enumerate(est_classes):
+                if is_external:
+                    col_idx = EXTERNAL_TO_INTERNAL.get(int(cls))
+                else:
+                    col_idx = int(cls)
+                if col_idx is None or not (0 <= col_idx < 3):
+                    raise ValueError(f"Unrecognized or out-of-bounds class label {cls} in estimator classes_")
+                aligned_probs[:, col_idx] = raw_probs[:, idx]
+        elif raw_probs.shape[1] == 3:
+            aligned_probs = raw_probs
+        else:
+            raise ValueError(
+                f"Estimator returned invalid probability shape {raw_probs.shape}, expected ({len(X_proc)}, 3)"
+            )
+
+        return validate_and_normalize_probabilities(aligned_probs, expected_samples=len(X_proc))
 
 
 # =============================================================================
@@ -309,6 +418,13 @@ class ModelRegistry:
             "scipy": scipy.__version__,
             "joblib": joblib.__version__,
         }
+        try:
+            import xgboost as xgb
+            lib_versions["xgboost"] = xgb.__version__
+        except (ImportError, OSError):
+            pass
+        except Exception:
+            pass
 
         return ModelProvenance(
             dataset_sha256=ds_sha256,
@@ -321,8 +437,8 @@ class ModelRegistry:
 
     def register_model(
         self,
-        estimator: MultinomialLogisticRegression,
-        scaler: StandardScaler,
+        estimator: Any,
+        scaler: Optional[StandardScaler],
         horizon: int,
         hyperparameters: Dict[str, Any],
         validation_metrics: ClassificationMetrics,
@@ -331,6 +447,8 @@ class ModelRegistry:
         version: str = "1.0.0",
         model_name: str = "logistic_regression",
         experiment_id: str = "phase-5c3-lr-tuning",
+        algorithm: Optional[str] = None,
+        solver: Optional[str] = None,
         target_threshold_pct: Optional[float] = None,
         purge_window_sessions: Optional[int] = None,
         registry_schema_version: str = "1.0",
@@ -365,12 +483,24 @@ class ModelRegistry:
             )
 
         # Ensure estimator and scaler are fitted
-        if not getattr(estimator, "is_fitted_", False):
+        if not is_estimator_fitted(estimator):
             raise ValueError("Cannot register an unfitted estimator.")
-        if scaler.mean_ is None or scaler.scale_ is None:
-            raise ValueError("Cannot register an unfitted scaler.")
+        if scaler is not None:
+            if scaler.mean_ is None or scaler.scale_ is None:
+                raise ValueError("Cannot register an unfitted scaler.")
 
         feature_names = list(getattr(estimator, "feature_names", APPROVED_FEATURE_ALLOWLIST))
+
+        if algorithm is None:
+            if isinstance(estimator, MultinomialLogisticRegression):
+                algorithm = "Multinomial Logistic Regression (L2)"
+            elif hasattr(estimator, "__class__"):
+                algorithm = estimator.__class__.__name__
+            else:
+                algorithm = "Unknown Model"
+
+        if solver is None:
+            solver = hyperparameters.get("solver", "not_applicable")
 
         # 2. Create staging directory on the SAME filesystem to guarantee atomic os.replace()
         staging_dir = tempfile.mkdtemp(prefix=f".staging_{model_id}_", dir=self.registry_dir)
@@ -425,8 +555,8 @@ class ModelRegistry:
                 model_name=model_name,
                 version=version,
                 horizon=horizon,
-                algorithm="Multinomial Logistic Regression (L2)",
-                solver=hyperparameters.get("solver", "lbfgs"),
+                algorithm=algorithm,
+                solver=solver,
                 hyperparameters=hyperparameters,
                 target_type="open_to_close",
                 target_threshold_pct=resolved_threshold,
@@ -549,7 +679,7 @@ class ModelRegistry:
         metadata = self.get_metadata(model_id)
 
         # 1. Enforce runtime compatibility
-        check_runtime_compatibility(metadata.provenance)
+        check_runtime_compatibility(metadata.provenance, algorithm=metadata.algorithm)
 
         model_dir = self._get_model_dir(model_id)
         artifact_path = os.path.join(model_dir, metadata.artifact_filename)
@@ -611,19 +741,20 @@ class ModelRegistry:
         estimator = bundle.get("estimator")
         scaler = bundle.get("scaler")
 
-        if estimator is None or not getattr(estimator, "is_fitted_", False):
+        if estimator is None or not is_estimator_fitted(estimator):
             raise RegistryError(f"Corrupted bundle: estimator is missing or unfitted in model '{model_id}'.")
 
-        if scaler is None or scaler.mean_ is None or scaler.scale_ is None:
-            raise RegistryError(f"Corrupted bundle: scaler is missing or unfitted in model '{model_id}'.")
+        if scaler is not None:
+            if scaler.mean_ is None or scaler.scale_ is None:
+                raise RegistryError(f"Corrupted bundle: scaler is unfitted in model '{model_id}'.")
 
-        if scaler.n_features_in_ != len(metadata.feature_names):
-            raise IncompatibleFeatureError(
-                f"Scaler feature count mismatch: scaler expects {scaler.n_features_in_} features, "
-                f"but metadata specifies {len(metadata.feature_names)} features."
-            )
+            if scaler.n_features_in_ != len(metadata.feature_names):
+                raise IncompatibleFeatureError(
+                    f"Scaler feature count mismatch: scaler expects {scaler.n_features_in_} features, "
+                    f"but metadata specifies {len(metadata.feature_names)} features."
+                )
 
-        estimator_features = getattr(estimator, "n_features_", None)
+        estimator_features = getattr(estimator, "n_features_", getattr(estimator, "n_features_in_", None))
         if estimator_features is not None and estimator_features != len(metadata.feature_names):
             raise IncompatibleFeatureError(
                 f"Estimator feature dimension mismatch: estimator expects {estimator_features} features, "
