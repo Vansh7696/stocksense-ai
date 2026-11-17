@@ -5,14 +5,22 @@ on the approved 23 technical features with direct raw feature ingestion and
 nested inner early-stopping support.
 """
 
-from typing import Dict, List, Optional, Any, Union, Sequence, Tuple
+import os
+import json
+import time
+from typing import Dict, List, Optional, Any, Union, Sequence, Tuple, Callable
 import numpy as np
 import pandas as pd
 
 from app.services.splitting import APPROVED_FEATURE_ALLOWLIST
-from app.services.metrics import validate_and_normalize_probabilities
+from app.services.metrics import (
+    compute_classification_metrics,
+    validate_and_normalize_probabilities,
+)
 from app.schemas.xgboost_model import (
     XGBoostHyperparameters,
+    XGBoostCandidateRecord,
+    XGBoostTuningResult,
     XGBoostModelMetadata,
 )
 
@@ -75,6 +83,7 @@ class XGBoostModel:
         random_state: int = 42,
         eval_metric: str = "mlogloss",
         early_stopping_rounds: Optional[int] = 15,
+        n_jobs: int = -1,
         horizon: Optional[int] = None,
         feature_names: Optional[List[str]] = None,
     ):
@@ -91,6 +100,7 @@ class XGBoostModel:
         self.random_state = int(random_state)
         self.eval_metric = str(eval_metric)
         self.early_stopping_rounds = int(early_stopping_rounds) if early_stopping_rounds is not None else None
+        self.n_jobs = int(n_jobs)
         self.horizon = horizon
         self.feature_names = list(feature_names or APPROVED_FEATURE_ALLOWLIST)
 
@@ -105,6 +115,11 @@ class XGBoostModel:
         self.n_features_: Optional[int] = None
         self.best_iteration_: Optional[int] = None
         self.is_fitted_: bool = False
+
+    @property
+    def best_iteration(self) -> Optional[int]:
+        """Returns the 0-based best_iteration determined via early stopping, or None."""
+        return self.best_iteration_
 
     def _validate_and_extract_features(self, X: Any) -> np.ndarray:
         """Validates input feature matrix shape, presence, ordering, and finiteness."""
@@ -259,6 +274,7 @@ class XGBoostModel:
             eval_metric=self.eval_metric,
             early_stopping_rounds=es_rounds if processed_eval_set is not None else None,
             tree_method="hist",
+            n_jobs=self.n_jobs,
         )
 
         if processed_eval_set is not None:
@@ -349,6 +365,7 @@ def create_xgboost_model(
     config: Optional[XGBoostHyperparameters] = None,
     horizon: Optional[int] = None,
     feature_names: Optional[List[str]] = None,
+    n_jobs: int = -1,
 ) -> XGBoostModel:
     """
     Factory function instantiating a configured XGBoostModel.
@@ -380,6 +397,7 @@ def create_xgboost_model(
         random_state=config.random_state,
         eval_metric=config.eval_metric,
         early_stopping_rounds=config.early_stopping_rounds,
+        n_jobs=n_jobs,
         horizon=horizon,
         feature_names=feature_names,
     )
@@ -435,3 +453,251 @@ def get_xgboost_search_grid() -> List[XGBoostHyperparameters]:
                         idx += 1
 
     return grid
+
+
+def _lexicographic_xgb_sort_key(
+    record: XGBoostCandidateRecord,
+) -> Tuple[float, float, float, int, float, float, int]:
+    """
+    Deterministic tie-break hierarchy for XGBoost model selection:
+    1. Highest balanced accuracy (-bal_acc)
+    2. Highest macro F1 (-macro_f1)
+    3. Lowest log loss (log_loss)
+    4. Lower max_depth (max_depth)
+    5. Higher reg_lambda (-reg_lambda)
+    6. Higher gamma (-gamma)
+    7. Lower grid_index (grid_index)
+    """
+    bal_acc = float(record.metrics.balanced_accuracy)
+    macro_f1 = float(record.metrics.macro_f1)
+    log_loss = float(record.metrics.log_loss)
+    max_depth = int(record.hyperparameters.max_depth)
+    reg_lambda = float(record.hyperparameters.reg_lambda)
+    gamma = float(record.hyperparameters.gamma)
+    grid_idx = int(record.grid_index) if record.grid_index is not None else 0
+
+    return (-bal_acc, -macro_f1, log_loss, max_depth, -reg_lambda, -gamma, grid_idx)
+
+
+def tune_xgboost(
+    X_in_tr: Union[pd.DataFrame, np.ndarray],
+    y_in_tr: Union[Sequence[int], np.ndarray, pd.Series],
+    X_in_val: Union[pd.DataFrame, np.ndarray],
+    y_in_val: Union[Sequence[int], np.ndarray, pd.Series],
+    X_full_tr: Union[pd.DataFrame, np.ndarray],
+    y_full_tr: Union[Sequence[int], np.ndarray, pd.Series],
+    X_val: Union[pd.DataFrame, np.ndarray],
+    y_val: Union[Sequence[int], np.ndarray, pd.Series],
+    horizon: int,
+    feature_names: Optional[List[str]] = None,
+    n_jobs: int = -1,
+    checkpoint_path: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    progress_callback: Optional[Callable[[int, int, XGBoostCandidateRecord], None]] = None,
+    grid: Optional[List[XGBoostHyperparameters]] = None,
+) -> XGBoostTuningResult:
+    """
+    Systematically tunes XGBoost across the approved 162 candidate configurations using
+    the rigorous two-stage early-stopping and full-training refit protocol.
+
+    Protocol:
+    - Stage 1: Fit on raw inner training partition with early stopping (patience=15)
+               evaluated against inner validation fold. Captures optimal round M*.
+    - Stage 2: Refit candidate on full outer training partition with fixed n_estimators = M* + 1
+               without early stopping.
+    - Stage 3: Evaluate on outer validation partition to produce unbiased validation metrics.
+
+    Guarantees:
+    - Zero double-use of outer validation data for early stopping.
+    - Deterministic tie-breaking using the approved 7-level hierarchy.
+    - Incremental atomic checkpoint persistence and interruption recovery.
+    - Progress reporting callback support.
+
+    Args:
+        X_in_tr: Inner training features (N_in_tr, 23).
+        y_in_tr: Inner training labels in {-1, 0, 1}.
+        X_in_val: Inner validation features (N_in_val, 23).
+        y_in_val: Inner validation labels in {-1, 0, 1}.
+        X_full_tr: Full outer training features (N_full_tr, 23).
+        y_full_tr: Full outer training labels in {-1, 0, 1}.
+        X_val: Outer validation features (N_val, 23).
+        y_val: Outer validation labels in {-1, 0, 1}.
+        horizon: Prediction horizon h in trading days (1, 3, or 5).
+        feature_names: Optional feature column names (defaults to 23 approved features).
+        n_jobs: CPU parallelism for tree construction.
+        checkpoint_path: Optional filesystem path for atomic checkpoint persistence.
+        experiment_id: Optional experiment identifier for traceability.
+        progress_callback: Optional callable(completed_count, total_count, latest_record).
+        grid: Optional custom search grid (defaults to exact 162 configurations).
+
+    Returns:
+        XGBoostTuningResult with all evaluated candidates, rankings, and champion.
+    """
+    if not XGBOOST_AVAILABLE or XGBClassifier is None:
+        msg = (
+            "XGBoost is not available in the current environment. "
+            "Please install 'xgboost>=2.1.0' as declared in ml-service/requirements.txt "
+            "and ensure OpenMP runtime (libomp) is installed on your system."
+        )
+        if _XGBOOST_IMPORT_ERROR is not None:
+            raise XGBoostDependencyError(f"{msg} Cause: {_XGBOOST_IMPORT_ERROR}") from _XGBOOST_IMPORT_ERROR
+        raise XGBoostDependencyError(msg)
+
+    features = list(feature_names or APPROVED_FEATURE_ALLOWLIST)
+    search_grid = grid if grid is not None else get_xgboost_search_grid()
+
+    y_in_tr_arr = np.asarray(y_in_tr, dtype=np.int64)
+    y_in_val_arr = np.asarray(y_in_val, dtype=np.int64)
+    y_full_tr_arr = np.asarray(y_full_tr, dtype=np.int64)
+    y_val_arr = np.asarray(y_val, dtype=np.int64)
+
+    if len(np.unique(y_in_tr_arr)) < 2:
+        raise ValueError("XGBoost inner training requires at least 2 distinct classes in training partition.")
+    if len(np.unique(y_full_tr_arr)) < 2:
+        raise ValueError("XGBoost outer training requires at least 2 distinct classes in training partition.")
+
+    records_by_idx: Dict[int, XGBoostCandidateRecord] = {}
+
+    # Checkpoint resumption
+    if checkpoint_path is not None and os.path.exists(checkpoint_path):
+        try:
+            with open(checkpoint_path, "r", encoding="utf-8") as f:
+                chk_data = json.load(f)
+            if chk_data.get("horizon") == horizon and chk_data.get("model_family") == "xgboost":
+                for item in chk_data.get("candidates", []):
+                    rec = XGBoostCandidateRecord.model_validate(item)
+                    records_by_idx[rec.grid_index] = rec
+        except Exception:
+            records_by_idx = {}
+
+    total_candidates = len(search_grid)
+
+    for candidate in search_grid:
+        idx = candidate.grid_index if candidate.grid_index is not None else len(records_by_idx)
+        if idx in records_by_idx:
+            if progress_callback is not None:
+                progress_callback(len(records_by_idx), total_candidates, records_by_idx[idx])
+            continue
+
+        # Stage 1: Inner training with early stopping against inner validation
+        t_s1_start = time.perf_counter()
+        stage1_model = create_xgboost_model(
+            config=candidate,
+            horizon=horizon,
+            feature_names=features,
+            n_jobs=n_jobs,
+        )
+        stage1_model.fit(
+            X=X_in_tr,
+            y=y_in_tr_arr,
+            eval_set=[(X_in_val, y_in_val_arr)],
+            early_stopping_rounds=candidate.early_stopping_rounds or 15,
+        )
+        t_stage1 = time.perf_counter() - t_s1_start
+
+        best_iter = stage1_model.best_iteration
+        if best_iter is not None:
+            refit_n_est = int(best_iter + 1)
+        else:
+            refit_n_est = int(candidate.n_estimators)
+
+        # Stage 2: Full-training refit on outer training set with n_estimators = best_iter + 1
+        t_s2_start = time.perf_counter()
+        refit_config = candidate.model_copy(update={"n_estimators": refit_n_est, "early_stopping_rounds": None})
+        refit_model = create_xgboost_model(
+            config=refit_config,
+            horizon=horizon,
+            feature_names=features,
+            n_jobs=n_jobs,
+        )
+        refit_model.fit(X=X_full_tr, y=y_full_tr_arr)
+        t_stage2 = time.perf_counter() - t_s2_start
+
+        total_fit_time = t_stage1 + t_stage2
+
+        # Stage 3: Evaluate on outer validation partition
+        y_pred = refit_model.predict(X_val)
+        y_prob = refit_model.predict_proba(X_val)
+
+        metrics = compute_classification_metrics(
+            y_true=y_val_arr,
+            y_pred=y_pred,
+            y_prob=y_prob,
+            horizon=horizon,
+            model_name="XGBClassifier",
+        )
+
+        record = XGBoostCandidateRecord(
+            grid_index=idx,
+            hyperparameters=candidate,
+            best_iteration=best_iter,
+            metrics=metrics,
+            is_selected=False,
+            fit_time_seconds=float(total_fit_time),
+        )
+        records_by_idx[idx] = record
+
+        # Atomic checkpoint persistence
+        if checkpoint_path is not None:
+            os.makedirs(os.path.dirname(os.path.abspath(checkpoint_path)), exist_ok=True)
+            tmp_path = f"{checkpoint_path}.tmp"
+            payload = {
+                "experiment_id": experiment_id,
+                "horizon": horizon,
+                "model_family": "xgboost",
+                "completed_count": len(records_by_idx),
+                "total_count": total_candidates,
+                "candidates": [r.model_dump(mode="json") for r in records_by_idx.values()],
+            }
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+            os.replace(tmp_path, checkpoint_path)
+
+        if progress_callback is not None:
+            progress_callback(len(records_by_idx), total_candidates, record)
+
+    # Deterministic ranking
+    ranked = sorted(records_by_idx.values(), key=_lexicographic_xgb_sort_key)
+    champion_idx = ranked[0].grid_index
+
+    # Mark champion
+    final_candidates: List[XGBoostCandidateRecord] = []
+    champion_record: Optional[XGBoostCandidateRecord] = None
+
+    for idx in sorted(records_by_idx.keys()):
+        rec = records_by_idx[idx]
+        is_champ = (rec.grid_index == champion_idx)
+        updated_rec = XGBoostCandidateRecord(
+            grid_index=rec.grid_index,
+            hyperparameters=rec.hyperparameters,
+            best_iteration=rec.best_iteration,
+            metrics=rec.metrics,
+            is_selected=is_champ,
+            fit_time_seconds=rec.fit_time_seconds,
+        )
+        final_candidates.append(updated_rec)
+        if is_champ:
+            champion_record = updated_rec
+
+    assert champion_record is not None, "Champion candidate must be identified"
+    selection_rankings = [r.grid_index for r in ranked]
+
+    n_tr = len(y_full_tr_arr)
+    n_v = len(y_val_arr)
+
+    return XGBoostTuningResult(
+        horizon=horizon,
+        candidates=final_candidates,
+        selected_candidate=champion_record,
+        selected_hyperparameters=champion_record.hyperparameters,
+        selection_rankings=selection_rankings,
+        n_train_samples=n_tr,
+        n_val_samples=n_v,
+        n_features=len(features),
+        feature_names=features,
+        metadata={
+            "experiment_id": experiment_id,
+            "total_candidates_evaluated": len(final_candidates),
+            "n_jobs": n_jobs,
+        },
+    )

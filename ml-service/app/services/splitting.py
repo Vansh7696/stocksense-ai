@@ -22,6 +22,35 @@ from app.schemas.splitting import (
 from app.services.targets import normalize_candle_timestamp
 
 
+# Explicit exception classes for partition and quarantine integrity
+class SplittingError(Exception):
+    """Base exception for data splitting and partition integrity failures."""
+    pass
+
+
+class PartitionMembershipError(SplittingError):
+    """Raised when data observations contain session dates outside the exact allowed partition membership."""
+    pass
+
+
+class QuarantinedTestDataLeakageError(SplittingError):
+    """Raised when data intended for training or validation contains session dates from the quarantined Phase 5C.3 test partition."""
+    pass
+
+
+class TargetBoundaryLeakageError(SplittingError):
+    """Raised when target forward exit dates cross or touch a subsequent partition boundary."""
+    pass
+
+
+# Canonical boundary constants for Phase 5C.4.3
+MAX_TRAINING_DATE = "2026-03-11"
+MAX_VALIDATION_DATE = "2026-07-13"
+QUARANTINED_TEST_START_DATE = "2026-07-14"
+QUARANTINED_TEST_END_DATE = "2026-11-09"
+APPROVED_EQUITIES: Tuple[str, ...] = ("RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK")
+
+
 # Explicit list of columns that must NEVER be present in feature matrix X
 FUTURE_OR_TARGET_DERIVED_COLUMNS: Set[str] = {
     "target_class",
@@ -607,3 +636,155 @@ def get_purged_splits(
 
     train_df, val_df, test_df, _, _ = splitter.split_target_dataset(df, clean_dates, horizon=horizon)
     return train_df, val_df, test_df
+
+
+def split_inner_training_dates(
+    train_dates: List[str],
+    horizon: int,
+    inner_train_ratio: float = 0.80,
+) -> Tuple[List[str], List[str], List[str], List[str]]:
+    """
+    Chronologically splits nominal outer training dates into:
+    (retained_inner_train_dates, purged_inner_train_dates, retained_inner_val_dates, purged_inner_val_dates).
+
+    Guarantees:
+    - Inner train is exactly the first inner_train_ratio (default 80%) of training dates.
+    - Inner validation is the remaining (20%) of training dates.
+    - Exactly the final h dates of Inner Train are purged to prevent forward look-ahead into Inner Val.
+    - Exactly the final h dates of Inner Val are purged to prevent forward look-ahead into Outer Val.
+    - Zero date overlap between retained partitions.
+
+    Args:
+        train_dates: Chronologically sorted nominal training dates (e.g. 380 dates).
+        horizon: Prediction horizon h in trading days (1, 3, or 5).
+        inner_train_ratio: Fraction of nominal train dates assigned to inner training (default 0.80).
+
+    Returns:
+        Tuple of (retained_in_tr, purged_in_tr, retained_in_val, purged_in_val).
+    """
+    if not train_dates:
+        raise ValueError("train_dates list cannot be empty")
+    if horizon < 1:
+        raise ValueError(f"horizon must be >= 1, got {horizon}")
+
+    n_train = len(train_dates)
+    in_tr_count = int(n_train * inner_train_ratio)
+    if in_tr_count <= horizon:
+        raise ValueError(f"Inner train count ({in_tr_count}) must be greater than horizon ({horizon})")
+
+    nominal_in_tr = train_dates[:in_tr_count]
+    nominal_in_val = train_dates[in_tr_count:]
+
+    if len(nominal_in_val) <= horizon:
+        raise ValueError(f"Inner val count ({len(nominal_in_val)}) must be greater than horizon ({horizon})")
+
+    retained_in_tr = nominal_in_tr[:-horizon]
+    purged_in_tr = nominal_in_tr[-horizon:]
+
+    retained_in_val = nominal_in_val[:-horizon]
+    purged_in_val = nominal_in_val[-horizon:]
+
+    # Assert mathematical disjointness
+    assert set(retained_in_tr).isdisjoint(set(retained_in_val)), "Inner train and inner val dates must be disjoint"
+    assert set(retained_in_tr).isdisjoint(set(purged_in_tr)), "Retained and purged inner train dates must be disjoint"
+    assert set(retained_in_val).isdisjoint(set(purged_in_val)), "Retained and purged inner val dates must be disjoint"
+
+    return retained_in_tr, purged_in_tr, retained_in_val, purged_in_val
+
+
+def validate_partition_membership(
+    df: pd.DataFrame,
+    expected_dates: Sequence[str],
+    partition_name: str = "partition",
+    approved_symbols: Optional[Sequence[str]] = None,
+) -> None:
+    """
+    Strictly validates that observations in df match the exact expected allowed session-date set.
+
+    Guarantees:
+    - Rejects any observation containing session_date >= QUARANTINED_TEST_START_DATE.
+    - Rejects any observation if session dates do not match expected_dates exactly.
+    - Rejects unapproved equity ticker symbols.
+
+    Args:
+        df: DataFrame with observations.
+        expected_dates: Exact list/set of canonical allowed dates for this partition and horizon.
+        partition_name: Human-readable partition name for error messages.
+        approved_symbols: Optional allowed symbols (defaults to APPROVED_EQUITIES).
+    """
+    if len(df) == 0:
+        raise PartitionMembershipError(f"{partition_name} cannot be empty.")
+
+    date_col = "session_date" if "session_date" in df.columns else "signal_date"
+    if date_col not in df.columns:
+        date_col = "timestamp"
+    if date_col not in df.columns:
+        raise PartitionMembershipError(f"{partition_name} missing required session date column.")
+
+    obs_dates = df[date_col].apply(lambda x: normalize_candle_timestamp(x)[1] if isinstance(x, str) else str(x))
+    unique_obs_dates = sorted(list(set(obs_dates)))
+    expected_set = set(expected_dates)
+
+    # 1. Quarantined test partition guard (fail-closed)
+    test_leakage = [d for d in unique_obs_dates if d >= QUARANTINED_TEST_START_DATE]
+    if test_leakage:
+        raise QuarantinedTestDataLeakageError(
+            f"CRITICAL DATA LEAKAGE: Quarantined Phase 5C.3 test partition date(s) detected in {partition_name}: "
+            f"{test_leakage[:5]} (total {len(test_leakage)}). The test partition is permanently consumed and forbidden."
+        )
+
+    # 2. Exact date set equivalence
+    obs_set = set(unique_obs_dates)
+    unexpected = obs_set - expected_set
+    missing = expected_set - obs_set
+    if unexpected or missing:
+        raise PartitionMembershipError(
+            f"Exact partition membership mismatch in {partition_name}:\n"
+            f"  Expected {len(expected_set)} dates, got {len(obs_set)} observed dates.\n"
+            f"  Unexpected dates ({len(unexpected)}): {sorted(list(unexpected))[:5]}\n"
+            f"  Missing dates ({len(missing)}): {sorted(list(missing))[:5]}"
+        )
+
+    # 3. Approved symbols validation
+    symbols_to_check = approved_symbols or APPROVED_EQUITIES
+    sym_col = "stock_symbol" if "stock_symbol" in df.columns else "symbol"
+    if sym_col in df.columns:
+        observed_symbols = set(df[sym_col].dropna().unique())
+        unapproved = observed_symbols - set(symbols_to_check)
+        if unapproved:
+            raise PartitionMembershipError(
+                f"Unapproved ticker symbols detected in {partition_name}: {sorted(list(unapproved))}. "
+                f"Allowed symbols: {list(symbols_to_check)}"
+            )
+
+
+def validate_target_boundaries(
+    df: pd.DataFrame,
+    next_partition_start_date: str,
+    horizon: int,
+    partition_name: str = "partition",
+) -> None:
+    """
+    Validates that no forward target exit dates in df cross into a subsequent partition.
+
+    Args:
+        df: DataFrame containing target records.
+        next_partition_start_date: Starting date string of the subsequent partition (e.g. '2026-03-12' for outer val).
+        horizon: Prediction horizon h.
+        partition_name: Partition name for error diagnostics.
+    """
+    exit_col = "exit_date" if "exit_date" in df.columns else None
+    if exit_col is None:
+        return
+
+    # Check for forward exit date boundary violation
+    exit_dates = df[exit_col].apply(lambda x: normalize_candle_timestamp(x)[1] if isinstance(x, str) else str(x))
+    violating = df[exit_dates >= next_partition_start_date]
+    if len(violating) > 0:
+        sample_violations = violating[[ "session_date", exit_col ]].head(3).to_dict(orient="records")
+        raise TargetBoundaryLeakageError(
+            f"Target forward exit date leakage detected in {partition_name} for horizon h={horizon}:\n"
+            f"  {len(violating)} targets have exit_date >= next partition start '{next_partition_start_date}'.\n"
+            f"  Sample violating rows: {sample_violations}.\n"
+            f"  Targets must be purged so no exit date touches subsequent partitions."
+        )

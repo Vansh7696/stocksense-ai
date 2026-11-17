@@ -11,5 +11,6 @@ from app.ml.baselines import *
 from app.ml.logistic_regression import *
 from app.ml.random_forest import *
 from app.ml.xgboost_model import *
+from app.ml.tuning import *
 from app.ml.registry import *
 from app.ml.evaluation import *

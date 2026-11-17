@@ -1,0 +1,151 @@
+{
+  "registry_schema_version": "1.0",
+  "model_id": "random_forest_h3_v1.0.0",
+  "model_name": "random_forest",
+  "version": "1.0.0",
+  "horizon": 3,
+  "algorithm": "Random Forest Classifier",
+  "solver": "not_applicable",
+  "hyperparameters": {
+    "n_estimators": 100,
+    "max_depth": 5,
+    "min_samples_leaf": 15,
+    "max_features": "sqrt",
+    "class_weight": null,
+    "bootstrap": true,
+    "random_state": 42,
+    "grid_index": 18
+  },
+  "target_type": "open_to_close",
+  "target_threshold_pct": 1.0,
+  "target_definition": "UP (+1) if return > +theta_h, DOWN (-1) if return < -theta_h, NEUTRAL (0) otherwise",
+  "entry_price_convention": "next_session_open (O[t+1])",
+  "exit_price_convention": "horizon_session_close (C[t+h])",
+  "split_methodology": "PurgedGroupedChronologicalSplitter",
+  "split_ratios": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "purge_window_sessions": 3,
+  "embargo_window_sessions": 0,
+  "training_samples": 1885,
+  "validation_samples": 390,
+  "validation_metrics": {
+    "accuracy": 0.3717948717948718,
+    "balanced_accuracy": 0.36592259839435465,
+    "macro_precision": 0.38818142343978207,
+    "macro_recall": 0.36592259839435465,
+    "macro_f1": 0.3583809418305928,
+    "per_class": {
+      "DOWN": {
+        "precision": 0.3877551020408163,
+        "recall": 0.38513513513513514,
+        "f1": 0.3864406779661017,
+        "support": 148
+      },
+      "NEUTRAL": {
+        "precision": 0.43636363636363634,
+        "recall": 0.20869565217391303,
+        "f1": 0.2823529411764706,
+        "support": 115
+      },
+      "UP": {
+        "precision": 0.3404255319148936,
+        "recall": 0.5039370078740157,
+        "f1": 0.40634920634920635,
+        "support": 127
+      }
+    },
+    "confusion_matrix": [
+      [
+        57,
+        17,
+        74
+      ],
+      [
+        41,
+        24,
+        50
+      ],
+      [
+        49,
+        14,
+        64
+      ]
+    ],
+    "catastrophic_error": {
+      "count": 123,
+      "rate": 0.3153846153846154,
+      "down_to_up_count": 74,
+      "up_to_down_count": 49,
+      "total_samples": 390,
+      "directional_samples_count": 275,
+      "directional_subset_rate": 0.44727272727272727
+    },
+    "log_loss": 1.1163297153715788,
+    "brier_score": 0.678052742510566,
+    "total_samples": 390,
+    "horizon": 3,
+    "model_name": "RandomForestClassifier",
+    "metadata": {}
+  },
+  "feature_schema_version": "23_scale_invariant_technical_v1",
+  "feature_names": [
+    "price_to_sma20",
+    "price_to_sma50",
+    "price_to_sma200",
+    "price_to_ema12",
+    "price_to_ema26",
+    "price_to_ema50",
+    "rsi_14",
+    "rsi_normalized",
+    "rsi_slope_5",
+    "macd_hist",
+    "macd_hist_normalized",
+    "bb_percent_b",
+    "bb_zscore",
+    "bb_bandwidth",
+    "atr_pct",
+    "return_1d",
+    "return_5d",
+    "return_21d",
+    "volatility_20d",
+    "relative_volume_20",
+    "trend_alignment",
+    "ma_spread_50_200",
+    "ma_spread_20_50"
+  ],
+  "class_labels": [
+    -1,
+    0,
+    1
+  ],
+  "class_names": [
+    "DOWN",
+    "NEUTRAL",
+    "UP"
+  ],
+  "artifact_filename": "model.joblib",
+  "artifact_sha256": "4386cc1f5c0f7ae0bcab7c25b81adc8b20364798753c8e6b9017779d828a0af3",
+  "artifact_size_bytes": 135088,
+  "status": "validation_selected",
+  "experiment_id": "phase_5c4_3_tuning_campaign",
+  "notes": "Champion selected via Phase 5C.4.3 tuning (grid index 18)",
+  "provenance": {
+    "dataset_sha256": "d75a0e0f4e94c0991bbca71e911333b1944e7f064d8f4dd712cffa1688b97170",
+    "dataset_identifier": "canonical_5stocks_v1",
+    "git_commit": "acd1b048d33b4685a5525b751171c714ca5f4329",
+    "python_version": "3.14.9",
+    "library_versions": {
+      "scikit-learn": "1.9.1",
+      "numpy": "2.5.5",
+      "pandas": "3.1.1",
+      "scipy": "1.18.1",
+      "joblib": "1.6.0",
+      "xgboost": "3.4.1"
+    },
+    "training_timestamp_utc": "2026-11-17T13:44:17.755287+00:00"
+  },
+  "created_at_utc": "2026-11-17T13:44:17.755418+00:00"
+}
