@@ -24,6 +24,7 @@ from app.services.registry import (
     IncompatibleFeatureError,
 )
 from app.services.splitting import QuarantinedTestDataLeakageError
+from app.services.telemetry import ml_telemetry
 
 router = APIRouter(tags=["Model Inference"])
 
@@ -56,28 +57,40 @@ async def predict_endpoint(
     - Pre-engineered 23 technical features matching the approved schema
     """
     try:
-        return service.predict(request)
+        resp = service.predict(request)
+        ml_telemetry.record_inference(
+            resp.model_id,
+            resp.horizon,
+            "success",
+            resp.execution_time_ms / 1000.0,
+        )
+        return resp
     except (ValueError, IncompatibleFeatureError) as val_err:
+        ml_telemetry.record_inference("unknown", request.horizon, "validation_error", 0.0)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(val_err),
         )
     except QuarantinedTestDataLeakageError as q_err:
+        ml_telemetry.record_inference("unknown", request.horizon, "quarantine_violation", 0.0)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Quarantined test partition violation: {q_err}",
         )
     except ModelNotLoadedError as m_err:
+        ml_telemetry.record_inference("unknown", request.horizon, "not_loaded", 0.0)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(m_err),
         )
     except (ArtifactNotFoundError, ArtifactIntegrityError) as art_err:
+        ml_telemetry.record_inference("unknown", request.horizon, "integrity_error", 0.0)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(art_err),
         )
     except Exception as exc:
+        ml_telemetry.record_inference("unknown", request.horizon, "error", 0.0)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Inference execution failure: {str(exc)}",
@@ -99,28 +112,41 @@ async def predict_multi_horizon_endpoint(
     for an equity. Optimizes execution by extracting technical features once.
     """
     try:
-        return service.predict_multi_horizon(request)
+        resp = service.predict_multi_horizon(request)
+        for h, pred in resp.predictions.items():
+            ml_telemetry.record_inference(
+                pred.model_id,
+                pred.horizon,
+                "success",
+                resp.total_execution_time_ms / 1000.0,
+            )
+        return resp
     except (ValueError, IncompatibleFeatureError) as val_err:
+        ml_telemetry.record_inference("unknown", 0, "validation_error", 0.0)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(val_err),
         )
     except QuarantinedTestDataLeakageError as q_err:
+        ml_telemetry.record_inference("unknown", 0, "quarantine_violation", 0.0)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Quarantined test partition violation: {q_err}",
         )
     except ModelNotLoadedError as m_err:
+        ml_telemetry.record_inference("unknown", 0, "not_loaded", 0.0)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(m_err),
         )
     except (ArtifactNotFoundError, ArtifactIntegrityError) as art_err:
+        ml_telemetry.record_inference("unknown", 0, "integrity_error", 0.0)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(art_err),
         )
     except Exception as exc:
+        ml_telemetry.record_inference("unknown", 0, "error", 0.0)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Multi-horizon inference execution failure: {str(exc)}",
@@ -133,22 +159,28 @@ async def predict_multi_horizon_endpoint(
     status_code=status.HTTP_200_OK,
     summary="Introspect Active Model Champions",
 )
+@router.get(
+    "/predict/models",
+    response_model=ActiveModelsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Introspect Active Champion Models Routing Manifest",
+)
 async def get_active_models_endpoint(
     service: InferenceService = Depends(get_inference_service),
 ) -> ActiveModelsResponse:
     """
-    Returns metadata descriptors for the active champions across all horizons,
-    including algorithm names, model IDs, artifact filenames, and SHA-256 digests.
+    Returns the active champion model manifest detailing promoted model IDs,
+    target horizons, classification thresholds, validation metrics, and cryptographic SHA-256 digests.
     """
     try:
         return service.get_active_models_manifest()
-    except ArtifactNotFoundError as art_err:
+    except ArtifactNotFoundError as enf:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(art_err),
+            detail=str(enf),
         )
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to load active model manifest: {str(exc)}",
+            detail=f"Failed to retrieve active champion manifest: {str(exc)}",
         )

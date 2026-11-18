@@ -1,5 +1,6 @@
 import defaultRedisClient, { isRedisReady } from '../config/redis.js';
 import { safeJsonStringify } from '../utils/json.js';
+import metricsRegistry from './metrics.service.js';
 
 export const CACHE_PREFIX = 'stocksense:cache';
 
@@ -97,9 +98,14 @@ export class CacheService {
 
     try {
       const raw = await this.redisClient.get(key);
-      if (!raw) return null;
+      if (!raw) {
+        metricsRegistry.recordCacheOp('get', 'miss');
+        return null;
+      }
+      metricsRegistry.recordCacheOp('get', 'hit');
       return JSON.parse(raw);
     } catch {
+      metricsRegistry.recordCacheOp('get', 'error');
       // Pass through on Redis read error
       return null;
     }
@@ -122,8 +128,11 @@ export class CacheService {
     try {
       const serialized = safeJsonStringify(data);
       const res = await this.redisClient.set(key, serialized, 'EX', ttlSeconds);
-      return res === 'OK';
+      const ok = res === 'OK';
+      metricsRegistry.recordCacheOp('set', ok ? 'ok' : 'error');
+      return ok;
     } catch {
+      metricsRegistry.recordCacheOp('set', 'error');
       // Fail open on Redis write error
       return false;
     }

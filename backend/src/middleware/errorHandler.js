@@ -1,13 +1,18 @@
 import { redactString, redactSecrets } from '../utils/crypto.js';
+import { logger } from '../utils/logger.js';
+import { getCorrelationId } from './correlationId.js';
 
 export const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = redactString(err.message || 'Internal Server Error');
   const safeUrl = redactString(req.originalUrl || req.url || '');
+  const correlationId = getCorrelationId(req);
 
-  console.error(`[Error] ${req.method} ${safeUrl} - Status: ${statusCode}`, {
-    message,
-    stack: process.env.NODE_ENV === 'development' ? redactString(err.stack || '') : undefined,
+  logger.error(message, {
+    correlationId,
+    endpoint: `${req.method} ${safeUrl}`,
+    statusCode,
+    error: err,
   });
 
   res.status(statusCode).json({
@@ -22,6 +27,7 @@ export const errorHandler = (err, req, res, next) => {
     meta: {
       timestamp: new Date().toISOString(),
       path: safeUrl,
+      ...(correlationId && { correlationId }),
     },
   });
 };

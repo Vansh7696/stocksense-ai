@@ -1,12 +1,25 @@
+"""
+StockSense AI — Python AI/ML Intelligence Microservice
+Core FastAPI application bootstrap with structured logging, correlation tracking,
+multi-horizon model inference, and Prometheus telemetry.
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
 from app.config import settings
+from app.core.logging import setup_logging
+from app.middleware.correlation import CorrelationIdMiddleware
 from app.api.health import router as health_router
 from app.api.indicators import router as indicators_router
 from app.api.features import router as features_router
 from app.api.targets import router as targets_router
 from app.api.inference import router as inference_router
+from app.api.metrics import router as metrics_router
+
+# Initialize centralized structured logging
+setup_logging(is_production=(settings.env == "production"))
 
 
 @asynccontextmanager
@@ -35,6 +48,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Distributed tracing & transaction logging middleware (registered first to capture full pipeline duration)
+app.add_middleware(CorrelationIdMiddleware)
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
@@ -51,6 +67,8 @@ app.include_router(indicators_router, prefix="/api")
 app.include_router(features_router, prefix="/api")
 app.include_router(targets_router, prefix="/api")
 app.include_router(inference_router, prefix="/api")
+app.include_router(metrics_router, prefix="/api")
+app.include_router(metrics_router)  # Also expose /metrics at root for Prometheus scraper
 
 
 @app.get("/")
@@ -60,4 +78,5 @@ async def root():
         "version": settings.version,
         "status": "healthy",
         "docs_url": "/docs",
+        "metrics_url": "/metrics",
     }

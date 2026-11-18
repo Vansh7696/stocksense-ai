@@ -7,6 +7,7 @@
 import prisma from '../config/prisma.js';
 import cacheService, { CACHE_TTL } from '../services/cache.service.js';
 import mlClientService from '../services/mlClient.service.js';
+import metricsRegistry from '../services/metrics.service.js';
 import { resolveStockIdentifier } from './stock.controller.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -45,6 +46,8 @@ function getHorizonLabel(h) {
  * 7. Applies financial advisory disclaimer, caches in Redis (TTL: 300s), and returns envelope.
  */
 export async function getStockPredictions(req, res, next) {
+  const predStartTime = process.hrtime.bigint();
+  let horizonFilter = null;
   try {
     const { id } = req.params;
     const { exchange, horizon } = req.query;
@@ -66,7 +69,6 @@ export async function getStockPredictions(req, res, next) {
       }
     }
 
-    let horizonFilter = null;
     if (horizon !== undefined && horizon !== '' && horizon !== 'all') {
       const parsedH = parseInt(horizon, 10);
       if (!ALLOWED_HORIZONS.has(parsedH)) {
@@ -125,6 +127,7 @@ export async function getStockPredictions(req, res, next) {
 
     // 4. Enforce minimum of 200 daily sessions for algorithmic warm-up
     if (!rawCandles || rawCandles.length < 200) {
+      metricsRegistry.recordPrediction(horizonFilter || 'all', 'insufficient_data');
       throw new AppError(
         `Insufficient historical daily candle data for "${stock.symbol}". At least 200 trading sessions are required for algorithmic feature warm-up (found ${rawCandles ? rawCandles.length : 0}).`,
         400,
@@ -145,11 +148,14 @@ export async function getStockPredictions(req, res, next) {
     // 6. Check Redis cache (fails open if Redis is unavailable)
     const cachedData = await cacheService.get(cacheKey);
     if (cachedData) {
+      const durationSeconds = Number(process.hrtime.bigint() - predStartTime) / 1e9;
+      metricsRegistry.recordPrediction(horizonFilter || 'all', 'cache_hit', durationSeconds);
       return res.status(200).json({
         success: true,
         data: cachedData,
         meta: {
           cached: true,
+          correlationId: req.correlationId,
           timestamp: new Date().toISOString(),
           stock: {
             id: stock.id,
@@ -167,6 +173,7 @@ export async function getStockPredictions(req, res, next) {
     // 8. Invoke FastAPI multi-horizon inference service
     const mlResponse = await mlClientService.predictMultiHorizon(stock.symbol, {
       candles: chronologicalCandles,
+      correlationId: req.correlationId,
     });
 
     // 9. Format structured predictions
@@ -213,11 +220,15 @@ export async function getStockPredictions(req, res, next) {
     const ttl = CACHE_TTL.STOCK_PREDICTIONS || CACHE_TTL.DEFAULT || 300;
     await cacheService.set(cacheKey, payload, ttl);
 
+    const durationSeconds = Number(process.hrtime.bigint() - predStartTime) / 1e9;
+    metricsRegistry.recordPrediction(horizonFilter || 'all', 'success', durationSeconds);
+
     return res.status(200).json({
       success: true,
       data: payload,
       meta: {
         cached: false,
+        correlationId: req.correlationId,
         timestamp: new Date().toISOString(),
         stock: {
           id: stock.id,
@@ -228,6 +239,7 @@ export async function getStockPredictions(req, res, next) {
       },
     });
   } catch (err) {
+    metricsRegistry.recordPrediction(horizonFilter || 'all', 'error');
     next(err);
   }
 }
@@ -249,6 +261,7 @@ export async function getActiveModelChampions(req, res, next) {
         data: cachedData,
         meta: {
           cached: true,
+          correlationId: req.correlationId,
           timestamp: new Date().toISOString(),
         },
       });
@@ -264,6 +277,7 @@ export async function getActiveModelChampions(req, res, next) {
       data: mlResponse,
       meta: {
         cached: false,
+        correlationId: req.correlationId,
         timestamp: new Date().toISOString(),
       },
     });

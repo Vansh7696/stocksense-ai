@@ -36,11 +36,18 @@ const api = axios.create({
   },
 });
 
-// Request interceptor: attach in-memory CSRF token to state-changing requests
+// Request interceptor: attach in-memory CSRF token and client correlation ID
 api.interceptors.request.use((config) => {
   const method = config.method?.toLowerCase();
   if (['post', 'put', 'patch', 'delete'].includes(method) && inMemoryCsrfToken) {
     config.headers['X-CSRF-Token'] = inMemoryCsrfToken;
+  }
+  // Attach unique correlation ID to every outgoing request for distributed tracing
+  if (!config.headers['X-Correlation-ID']) {
+    const correlationId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    config.headers['X-Correlation-ID'] = correlationId;
   }
   return config;
 });

@@ -7,6 +7,7 @@
 import axios from 'axios';
 import { config } from '../config/index.js';
 import { AppError } from '../middleware/errorHandler.js';
+import metricsRegistry from './metrics.service.js';
 
 export class MLServiceClient {
   /**
@@ -47,13 +48,14 @@ export class MLServiceClient {
    * @param {Object} [indicatorConfig] - Optional parameter overrides
    * @returns {Promise<Object>}
    */
-  async computeIndicators(symbol, candles, indicatorConfig = {}) {
+  async computeIndicators(symbol, candles, indicatorConfig = {}, options = {}) {
     if (!candles || candles.length === 0) {
       throw new AppError('Candles array cannot be empty for indicator calculation.', 400, 'EMPTY_CANDLES');
     }
 
     const formatted = this.formatCandlesForML(candles);
     const url = `${this.baseUrl}/api/indicators/compute`;
+    const startTime = process.hrtime.bigint();
 
     try {
       const response = await this.httpClient.post(
@@ -65,12 +67,19 @@ export class MLServiceClient {
         },
         {
           timeout: this.timeout,
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(options.correlationId && { 'X-Correlation-ID': options.correlationId }),
+          },
         }
       );
 
+      const durationSeconds = Number(process.hrtime.bigint() - startTime) / 1e9;
+      metricsRegistry.recordMlCall('/api/indicators/compute', 'success', durationSeconds);
       return response.data;
     } catch (err) {
+      const durationSeconds = Number(process.hrtime.bigint() - startTime) / 1e9;
+      metricsRegistry.recordMlCall('/api/indicators/compute', 'error', durationSeconds);
       if (err.response) {
         const detail = err.response.data?.detail || err.message;
         throw new AppError(`ML service calculation error: ${detail}`, err.response.status || 500, 'ML_CALCULATION_ERROR');
@@ -184,14 +193,22 @@ export class MLServiceClient {
     }
 
     const url = `${this.baseUrl}/api/predict`;
+    const startTime = process.hrtime.bigint();
 
     try {
       const response = await this.httpClient.post(url, payload, {
         timeout: this.timeout,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.correlationId && { 'X-Correlation-ID': options.correlationId }),
+        },
       });
+      const durationSeconds = Number(process.hrtime.bigint() - startTime) / 1e9;
+      metricsRegistry.recordMlCall('/api/predict', 'success', durationSeconds);
       return response.data;
     } catch (err) {
+      const durationSeconds = Number(process.hrtime.bigint() - startTime) / 1e9;
+      metricsRegistry.recordMlCall('/api/predict', 'error', durationSeconds);
       if (err.response) {
         const detail = err.response.data?.detail || err.message;
         throw new AppError(`ML prediction error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`, err.response.status || 500, 'ML_PREDICTION_ERROR');
@@ -237,14 +254,22 @@ export class MLServiceClient {
     }
 
     const url = `${this.baseUrl}/api/predict/multi-horizon`;
+    const startTime = process.hrtime.bigint();
 
     try {
       const response = await this.httpClient.post(url, payload, {
         timeout: this.timeout,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.correlationId && { 'X-Correlation-ID': options.correlationId }),
+        },
       });
+      const durationSeconds = Number(process.hrtime.bigint() - startTime) / 1e9;
+      metricsRegistry.recordMlCall('/api/predict/multi-horizon', 'success', durationSeconds);
       return response.data;
     } catch (err) {
+      const durationSeconds = Number(process.hrtime.bigint() - startTime) / 1e9;
+      metricsRegistry.recordMlCall('/api/predict/multi-horizon', 'error', durationSeconds);
       if (err.response) {
         const detail = err.response.data?.detail || err.message;
         throw new AppError(`ML multi-horizon prediction error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`, err.response.status || 500, 'ML_PREDICTION_ERROR');
