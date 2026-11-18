@@ -1,0 +1,187 @@
+# StockSense AI — Production Multi-Container Orchestration
+# Network Segmentation:
+#   - public-tier: Public ingress (Only Frontend Nginx reverse proxy binds host port 80/443)
+#   - internal-tier: Isolated service-to-service communication (Zero host port exposure for DB, Cache, or ML)
+
+services:
+  # -------------------------------------------------------------
+  # 1. PostgreSQL Relational Database
+  # -------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: stocksense-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stocksense}
+      POSTGRES_USER: ${POSTGRES_USER:-stocksense_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stocksense_password}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - internal-tier
+    # Zero external host port mapping for production database security
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # -------------------------------------------------------------
+  # 2. Redis Cache & Fast Feature Store
+  # -------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: stocksense-redis-prod
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - internal-tier
+    # Zero external host port mapping for cache security
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  # -------------------------------------------------------------
+  # 3. Python FastAPI Machine Learning Microservice
+  # -------------------------------------------------------------
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    image: stocksense-ml-service:prod
+    container_name: stocksense-ml-service-prod
+    restart: unless-stopped
+    environment:
+      ENV: production
+      PORT: 8000
+      CORS_ORIGINS: '["http://backend:5001"]'
+    networks:
+      - internal-tier
+    # Zero external host port mapping: inference accessible only via Express API gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536M
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  # -------------------------------------------------------------
+  # 4. Express Node.js Backend API Gateway
+  # -------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: stocksense-backend:prod
+    container_name: stocksense-backend-prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-stocksense_user}:${POSTGRES_PASSWORD:-stocksense_password}@postgres:5432/${POSTGRES_DB:-stocksense}?schema=public
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ML_SERVICE_URL: http://ml-service:8000
+      JWT_SECRET: ${JWT_SECRET}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+      CSRF_SECRET: ${CSRF_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+    networks:
+      - internal-tier
+    # Zero external host port mapping: Express API accessible to clients only via Nginx reverse proxy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5001/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # -------------------------------------------------------------
+  # 5. React Frontend + Nginx Reverse Proxy (Public Ingress)
+  # -------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: stocksense-frontend:prod
+    container_name: stocksense-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Only frontend publishes port to the host
+      - "${PORT:-80}:80"
+    networks:
+      - public-tier
+      - internal-tier
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+
+networks:
+  public-tier:
+    driver: bridge
+  internal-tier:
+    driver: bridge
