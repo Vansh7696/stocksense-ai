@@ -1,0 +1,34 @@
+{
+  "manifest_version": "1.0",
+  "updated_at_utc": "2026-11-17T21:13:00Z",
+  "dataset_sha256": "d75a0e0f4e94c0991bbca71e911333b1944e7f064d8f4dd712cffa1688b97170",
+  "active_champions": {
+    "1": {
+      "horizon": 1,
+      "model_id": "xgboost_h1_v1.0.0",
+      "model_family": "xgboost",
+      "algorithm": "XGBoost Classifier (Gradient Boosting)",
+      "artifact_filename": "model.joblib",
+      "artifact_sha256": "de20b76f50ac3f755be689f9103799153f651b1fe953a3fc5268df9d6898d7fb",
+      "status": "validation_selected"
+    },
+    "3": {
+      "horizon": 3,
+      "model_id": "xgboost_h3_v1.0.0",
+      "model_family": "xgboost",
+      "algorithm": "XGBoost Classifier (Gradient Boosting)",
+      "artifact_filename": "model.joblib",
+      "artifact_sha256": "cd99702a67888c4cc449a82c58d2ee420d661229323bb883f052dbf839896dbc",
+      "status": "validation_selected"
+    },
+    "5": {
+      "horizon": 5,
+      "model_id": "random_forest_h5_v1.0.0",
+      "model_family": "random_forest",
+      "algorithm": "Random Forest Classifier",
+      "artifact_filename": "model.joblib",
+      "artifact_sha256": "31f38a811f91cec56135a1ce4d288693e5261a5a1922a317913a15ef32e0c57a",
+      "status": "validation_selected"
+    }
+  }
+}

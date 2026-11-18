@@ -6,6 +6,7 @@ from app.api.health import router as health_router
 from app.api.indicators import router as indicators_router
 from app.api.features import router as features_router
 from app.api.targets import router as targets_router
+from app.api.inference import router as inference_router
 
 
 @asynccontextmanager
@@ -13,6 +14,15 @@ async def lifespan(app: FastAPI):
     # Startup lifecycle hook
     print(f"[ML Service] Initializing {settings.app_name} (v{settings.version})")
     print(f"[ML Service] Connected to environment: {settings.env}")
+    try:
+        from app.services.inference import InferenceService
+        inference_service = InferenceService()
+        inference_service.load_active_models()
+        app.state.inference_service = inference_service
+        print("[ML Service] Active inference model champions loaded into memory.")
+    except Exception as e:
+        print(f"[ML Service] Warning: Failed to pre-load active inference models: {e}")
+        app.state.inference_service = None
     yield
     # Teardown lifecycle hook
     print("[ML Service] Shutting down AI/ML compute engine")
@@ -40,6 +50,7 @@ app.include_router(health_router)  # Also expose /health at root for health chec
 app.include_router(indicators_router, prefix="/api")
 app.include_router(features_router, prefix="/api")
 app.include_router(targets_router, prefix="/api")
+app.include_router(inference_router, prefix="/api")
 
 
 @app.get("/")

@@ -148,6 +148,160 @@ export class MLServiceClient {
       throw new AppError(`Failed to communicate with ML service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
     }
   }
+
+  /**
+   * Invokes Python FastAPI endpoint POST /api/predict
+   *
+   * @param {string} symbol - Equity ticker
+   * @param {Object} [options]
+   * @param {number} [options.horizon=1] - Forecast horizon (1, 3, or 5)
+   * @param {Array<Object>} [options.candles] - Raw or formatted candles (>= 200 required)
+   * @param {Object} [options.features] - Precomputed 23-feature dictionary
+   * @param {string} [options.modelOverrideId] - Optional model_id override
+   * @returns {Promise<Object>}
+   */
+  async predict(symbol, options = {}) {
+    const horizon = options.horizon || 1;
+    if (![1, 3, 5].includes(horizon)) {
+      throw new AppError('Horizon must be 1, 3, or 5 trading days.', 400, 'INVALID_HORIZON');
+    }
+
+    const payload = {
+      symbol: symbol || 'UNKNOWN',
+      horizon,
+    };
+
+    if (options.candles && options.candles.length > 0) {
+      payload.candles = this.formatCandlesForML(options.candles);
+    } else if (options.features && Object.keys(options.features).length > 0) {
+      payload.features = options.features;
+    } else {
+      throw new AppError('Either candles (>= 200) or precomputed features must be provided for inference.', 400, 'MISSING_INFERENCE_INPUT');
+    }
+
+    if (options.modelOverrideId) {
+      payload.model_override_id = options.modelOverrideId;
+    }
+
+    const url = `${this.baseUrl}/api/predict`;
+
+    try {
+      const response = await this.httpClient.post(url, payload, {
+        timeout: this.timeout,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return response.data;
+    } catch (err) {
+      if (err.response) {
+        const detail = err.response.data?.detail || err.message;
+        throw new AppError(`ML prediction error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`, err.response.status || 500, 'ML_PREDICTION_ERROR');
+      }
+      if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        throw new AppError(
+          `Machine learning microservice is unavailable at ${this.baseUrl}.`,
+          503,
+          'ML_SERVICE_UNAVAILABLE'
+        );
+      }
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        throw new AppError(
+          `Machine learning microservice timed out after ${this.timeout}ms.`,
+          504,
+          'ML_SERVICE_TIMEOUT'
+        );
+      }
+      throw new AppError(`Failed to communicate with ML service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
+    }
+  }
+
+  /**
+   * Invokes Python FastAPI endpoint POST /api/predict/multi-horizon
+   *
+   * @param {string} symbol - Equity ticker
+   * @param {Object} [options]
+   * @param {Array<Object>} [options.candles] - Raw or formatted candles (>= 200 required)
+   * @param {Object} [options.features] - Precomputed 23-feature dictionary
+   * @returns {Promise<Object>}
+   */
+  async predictMultiHorizon(symbol, options = {}) {
+    const payload = {
+      symbol: symbol || 'UNKNOWN',
+    };
+
+    if (options.candles && options.candles.length > 0) {
+      payload.candles = this.formatCandlesForML(options.candles);
+    } else if (options.features && Object.keys(options.features).length > 0) {
+      payload.features = options.features;
+    } else {
+      throw new AppError('Either candles (>= 200) or precomputed features must be provided for multi-horizon inference.', 400, 'MISSING_INFERENCE_INPUT');
+    }
+
+    const url = `${this.baseUrl}/api/predict/multi-horizon`;
+
+    try {
+      const response = await this.httpClient.post(url, payload, {
+        timeout: this.timeout,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return response.data;
+    } catch (err) {
+      if (err.response) {
+        const detail = err.response.data?.detail || err.message;
+        throw new AppError(`ML multi-horizon prediction error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`, err.response.status || 500, 'ML_PREDICTION_ERROR');
+      }
+      if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        throw new AppError(
+          `Machine learning microservice is unavailable at ${this.baseUrl}.`,
+          503,
+          'ML_SERVICE_UNAVAILABLE'
+        );
+      }
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        throw new AppError(
+          `Machine learning microservice timed out after ${this.timeout}ms.`,
+          504,
+          'ML_SERVICE_TIMEOUT'
+        );
+      }
+      throw new AppError(`Failed to communicate with ML service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
+    }
+  }
+
+  /**
+   * Invokes Python FastAPI endpoint GET /api/models/active
+   *
+   * @returns {Promise<Object>}
+   */
+  async getActiveModels() {
+    const url = `${this.baseUrl}/api/models/active`;
+
+    try {
+      const response = await this.httpClient.get(url, {
+        timeout: this.timeout,
+      });
+      return response.data;
+    } catch (err) {
+      if (err.response) {
+        const detail = err.response.data?.detail || err.message;
+        throw new AppError(`ML model registry error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`, err.response.status || 500, 'ML_REGISTRY_ERROR');
+      }
+      if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        throw new AppError(
+          `Machine learning microservice is unavailable at ${this.baseUrl}.`,
+          503,
+          'ML_SERVICE_UNAVAILABLE'
+        );
+      }
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        throw new AppError(
+          `Machine learning microservice timed out after ${this.timeout}ms.`,
+          504,
+          'ML_SERVICE_TIMEOUT'
+        );
+      }
+      throw new AppError(`Failed to communicate with ML service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
+    }
+  }
 }
 
 export default new MLServiceClient();

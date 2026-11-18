@@ -1,0 +1,151 @@
+{
+  "registry_schema_version": "1.0",
+  "model_id": "random_forest_h5_v1.0.0",
+  "model_name": "random_forest",
+  "version": "1.0.0",
+  "horizon": 5,
+  "algorithm": "Random Forest Classifier",
+  "solver": "not_applicable",
+  "hyperparameters": {
+    "n_estimators": 100,
+    "max_depth": 6,
+    "min_samples_leaf": 40,
+    "max_features": "sqrt",
+    "class_weight": null,
+    "bootstrap": true,
+    "random_state": 42,
+    "grid_index": 33
+  },
+  "target_type": "open_to_close",
+  "target_threshold_pct": 1.5,
+  "target_definition": "UP (+1) if return > +theta_h, DOWN (-1) if return < -theta_h, NEUTRAL (0) otherwise",
+  "entry_price_convention": "next_session_open (O[t+1])",
+  "exit_price_convention": "horizon_session_close (C[t+h])",
+  "split_methodology": "PurgedGroupedChronologicalSplitter",
+  "split_ratios": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "purge_window_sessions": 5,
+  "embargo_window_sessions": 0,
+  "training_samples": 1875,
+  "validation_samples": 380,
+  "validation_metrics": {
+    "accuracy": 0.34210526315789475,
+    "balanced_accuracy": 0.3591406200416212,
+    "macro_precision": 0.338699494949495,
+    "macro_recall": 0.3591406200416212,
+    "macro_f1": 0.3264828032363369,
+    "per_class": {
+      "DOWN": {
+        "precision": 0.32727272727272727,
+        "recall": 0.12413793103448276,
+        "f1": 0.17999999999999997,
+        "support": 145
+      },
+      "NEUTRAL": {
+        "precision": 0.3575757575757576,
+        "recall": 0.47580645161290325,
+        "f1": 0.40830449826989623,
+        "support": 124
+      },
+      "UP": {
+        "precision": 0.33125,
+        "recall": 0.4774774774774775,
+        "f1": 0.39114391143911437,
+        "support": 111
+      }
+    },
+    "confusion_matrix": [
+      [
+        18,
+        71,
+        56
+      ],
+      [
+        14,
+        59,
+        51
+      ],
+      [
+        23,
+        35,
+        53
+      ]
+    ],
+    "catastrophic_error": {
+      "count": 79,
+      "rate": 0.20789473684210527,
+      "down_to_up_count": 56,
+      "up_to_down_count": 23,
+      "total_samples": 380,
+      "directional_samples_count": 256,
+      "directional_subset_rate": 0.30859375
+    },
+    "log_loss": 1.138474926164051,
+    "brier_score": 0.6911586595498757,
+    "total_samples": 380,
+    "horizon": 5,
+    "model_name": "RandomForestClassifier",
+    "metadata": {}
+  },
+  "feature_schema_version": "23_scale_invariant_technical_v1",
+  "feature_names": [
+    "price_to_sma20",
+    "price_to_sma50",
+    "price_to_sma200",
+    "price_to_ema12",
+    "price_to_ema26",
+    "price_to_ema50",
+    "rsi_14",
+    "rsi_normalized",
+    "rsi_slope_5",
+    "macd_hist",
+    "macd_hist_normalized",
+    "bb_percent_b",
+    "bb_zscore",
+    "bb_bandwidth",
+    "atr_pct",
+    "return_1d",
+    "return_5d",
+    "return_21d",
+    "volatility_20d",
+    "relative_volume_20",
+    "trend_alignment",
+    "ma_spread_50_200",
+    "ma_spread_20_50"
+  ],
+  "class_labels": [
+    -1,
+    0,
+    1
+  ],
+  "class_names": [
+    "DOWN",
+    "NEUTRAL",
+    "UP"
+  ],
+  "artifact_filename": "model.joblib",
+  "artifact_sha256": "31f38a811f91cec56135a1ce4d288693e5261a5a1922a317913a15ef32e0c57a",
+  "artifact_size_bytes": 128072,
+  "status": "validation_selected",
+  "experiment_id": "phase_5c4_3_tuning_campaign",
+  "notes": "Champion selected via Phase 5C.4.3 tuning (grid index 33)",
+  "provenance": {
+    "dataset_sha256": "d75a0e0f4e94c0991bbca71e911333b1944e7f064d8f4dd712cffa1688b97170",
+    "dataset_identifier": "canonical_5stocks_v1",
+    "git_commit": "acd1b048d33b4685a5525b751171c714ca5f4329",
+    "python_version": "3.14.9",
+    "library_versions": {
+      "scikit-learn": "1.9.1",
+      "numpy": "2.5.5",
+      "pandas": "3.1.1",
+      "scipy": "1.18.1",
+      "joblib": "1.6.0",
+      "xgboost": "3.4.1"
+    },
+    "training_timestamp_utc": "2026-11-17T13:45:10.955992+00:00"
+  },
+  "created_at_utc": "2026-11-17T13:45:10.956157+00:00"
+}

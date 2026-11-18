@@ -14,3 +14,4 @@ from app.ml.xgboost_model import *
 from app.ml.tuning import *
 from app.ml.registry import *
 from app.ml.evaluation import *
+from app.ml.inference import *
