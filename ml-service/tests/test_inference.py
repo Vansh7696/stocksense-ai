@@ -13,6 +13,7 @@ import tempfile
 import pytest
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -261,7 +262,9 @@ class TestInferenceSecurityAndIntegrity:
         fake_model_dir.mkdir()
 
         # Copy authentic metadata
-        real_meta_path = "ml-service/models/registry/xgboost_h1_v1.0.0/metadata.json"
+        real_meta_path = Path("ml-service/models/registry/xgboost_h1_v1.0.0/metadata.json")
+        if not real_meta_path.exists():
+            real_meta_path = Path("models/registry/xgboost_h1_v1.0.0/metadata.json")
         with open(real_meta_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
         with open(fake_model_dir / "metadata.json", "w", encoding="utf-8") as f:
