@@ -9,6 +9,12 @@ import {
   getStockIndicators,
   getStockFeatures,
 } from '../controllers/indicator.controller.js';
+import {
+  getStockPredictions,
+  getActiveModelChampions,
+} from '../controllers/prediction.controller.js';
+import { requireAuth } from '../middleware/auth.js';
+import { predictionRateLimiter } from '../middleware/authRateLimiter.js';
 
 const router = Router();
 
@@ -24,6 +30,18 @@ router.get('/', getStocks);
  * Declared before /:id to avoid route shadowing.
  */
 router.get('/search', searchStocks);
+
+/**
+ * GET /api/stocks/predictions/models
+ * Retrieve metadata for active champion prediction models.
+ * Declared before /:id to avoid route shadowing.
+ */
+router.get(
+  '/predictions/models',
+  requireAuth,
+  predictionRateLimiter,
+  getActiveModelChampions
+);
 
 /**
  * GET /api/stocks/:id
@@ -48,5 +66,16 @@ router.get('/:id/indicators', getStockIndicators);
  * Retrieve engineered ML feature matrix for a stock from historical candles.
  */
 router.get('/:id/features', getStockFeatures);
+
+/**
+ * GET /api/stocks/:id/predictions
+ * Generate multi-horizon directional forecast (h=1, 3, 5) for a stock.
+ */
+router.get(
+  '/:id/predictions',
+  requireAuth,
+  predictionRateLimiter,
+  getStockPredictions
+);
 
 export default router;

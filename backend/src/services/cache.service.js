@@ -12,6 +12,7 @@ export const CACHE_TTL = {
   MARKET_INDICES: 300,     // 5 minutes
   STOCK_PRICES: 300,       // 5 minutes
   STOCK_INDICATORS: 300,   // 5 minutes
+  STOCK_PREDICTIONS: 300,  // 5 minutes
 };
 
 /**

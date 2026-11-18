@@ -1,4 +1,4 @@
-import redisClient from '../config/redis.js';
+import redisClient, { isRedisReady } from '../config/redis.js';
 import { config } from '../config/index.js';
 import { AppError } from './errorHandler.js';
 
@@ -212,5 +212,39 @@ export async function recordSuccessfulLogin(ip, normalizedEmail) {
     await redisClient.del(pairKey);
   } catch (err) {
     // Non-fatal if reset fails
+  }
+}
+
+/**
+ * Prediction API Rate Limiter: Max 30 prediction requests per 1 minute per User/IP.
+ * Fails open if Redis is unavailable to avoid blocking legitimate user predictions.
+ */
+export async function predictionRateLimiter(req, res, next) {
+  if (!isRedisReady()) {
+    return next();
+  }
+
+  const userId = req.user?.id || req.user?.userId;
+  const identifier = userId ? `user:${userId}` : `ip:${getClientIp(req)}`;
+  const key = `stocksense:ratelimit:predictions:${identifier}`;
+  const windowSec = 60; // 1 minute window
+  const maxAttempts = 30; // 30 requests per minute
+
+  try {
+    const { count, ttl } = await atomicIncrement(key, windowSec);
+    if (count > maxAttempts) {
+      res.setHeader('Retry-After', String(ttl));
+      return next(
+        new AppError(
+          `Prediction rate limit exceeded. You may generate up to ${maxAttempts} predictions per minute. Please try again in ${ttl} seconds.`,
+          429,
+          'TOO_MANY_PREDICTION_REQUESTS'
+        )
+      );
+    }
+    next();
+  } catch {
+    // Fail open on Redis errors
+    next();
   }
 }
