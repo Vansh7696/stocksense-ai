@@ -139,9 +139,23 @@ class MultiHorizonPredictRequest(BaseModel):
         return self
 
 
+class FeatureAttribution(BaseModel):
+    """
+    Mathematical feature attribution decomposing directional prediction.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    feature: str = Field(..., description="Canonical feature identifier (e.g. 'rsi_14')")
+    value: float = Field(..., description="Observed feature value for this sample")
+    contribution: float = Field(..., description="Signed attribution score towards predicted class")
+    direction: DirectionalClass = Field(..., description="Direction supported by this feature (UP, DOWN, or NEUTRAL)")
+    display_name: str = Field(..., description="Human-friendly technical indicator name")
+    description: str = Field(..., description="Domain market interpretation for this contribution")
+
+
 class PredictResponse(BaseModel):
     """
-    Directional prediction response with calibrated probabilities and provenance metadata.
+    Directional prediction response with calibrated probabilities, provenance metadata, and feature attributions.
     """
     model_config = ConfigDict(extra="forbid")
 
@@ -161,6 +175,10 @@ class PredictResponse(BaseModel):
     feature_schema_version: str = Field(default="23_scale_invariant_technical_v1")
     inference_timestamp_utc: str = Field(..., description="UTC ISO timestamp of inference execution")
     execution_time_ms: float = Field(..., ge=0.0, description="Inference latency in milliseconds")
+    attributions: Optional[List[FeatureAttribution]] = Field(
+        default=None,
+        description="Top contributing technical features explaining this prediction",
+    )
 
 
 class MultiHorizonPredictResponse(BaseModel):

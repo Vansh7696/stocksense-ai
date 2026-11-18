@@ -202,6 +202,14 @@ export async function getStockPredictions(req, res, next) {
           featureSchemaVersion: pred.feature_schema_version,
         },
         executionTimeMs: pred.execution_time_ms,
+        attributions: (pred.attributions || []).map((attr) => ({
+          feature: attr.feature,
+          value: attr.value,
+          contribution: attr.contribution,
+          direction: attr.direction,
+          displayName: attr.display_name || attr.displayName || attr.feature,
+          description: attr.description,
+        })),
       };
     }
 

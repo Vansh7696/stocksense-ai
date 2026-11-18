@@ -11,9 +11,11 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Sparkles,
 } from 'lucide-react';
 import { Card, Badge } from '../ui';
 import ProbabilityBar from './ProbabilityBar';
+import { formatFeatureValue } from '../../utils/explainability';
 
 /**
  * Maps horizon number to standard visual accents and title badges.
@@ -98,6 +100,7 @@ function getDirectionMeta(label) {
 export default function HorizonPredictionCard({ prediction }) {
   const [copiedSha, setCopiedSha] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showAttributions, setShowAttributions] = useState(false);
 
   if (!prediction) return null;
 
@@ -113,6 +116,7 @@ export default function HorizonPredictionCard({ prediction }) {
     exitTiming = `Target Session Close (C[t+${horizon}])`,
     model = {},
     executionTimeMs = 0,
+    attributions = [],
   } = prediction;
 
   const header = getHorizonHeader(horizon);
@@ -248,6 +252,62 @@ export default function HorizonPredictionCard({ prediction }) {
             <span className="text-slate-200 font-medium">{exitTiming}</span>
           </div>
         </div>
+
+        {/* Key Technical Drivers (Attribution Preview) */}
+        {attributions.length > 0 && (
+          <div className="pt-2 border-t border-fintech-border/50">
+            <button
+              type="button"
+              onClick={() => setShowAttributions((prev) => !prev)}
+              className="w-full flex items-center justify-between text-[11px] font-mono text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+              <span className="flex items-center gap-1.5 font-semibold">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Key Technical Drivers ({attributions.length})</span>
+              </span>
+              {showAttributions ? (
+                <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              )}
+            </button>
+
+            {showAttributions && (
+              <div className="mt-2.5 space-y-2 p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-[10px] font-mono animate-fadeIn">
+                {attributions.slice(0, 3).map((attr, idx) => {
+                  const contrib = attr.contribution || 0;
+                  const isPos = contrib > 0;
+                  return (
+                    <div key={attr.feature || idx} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-300 font-semibold truncate max-w-[140px]">
+                          {attr.displayName || attr.display_name || attr.feature}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500">
+                            val: {formatFeatureValue(attr.feature, attr.value)}
+                          </span>
+                          <span
+                            className={`font-bold ${
+                              isPos ? 'text-emerald-400' : 'text-rose-400'
+                            }`}
+                          >
+                            {isPos ? `+${contrib.toFixed(3)}` : contrib.toFixed(3)}
+                          </span>
+                        </div>
+                      </div>
+                      {attr.description && (
+                        <p className="text-[9.5px] font-sans text-slate-400 leading-tight">
+                          {attr.description}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Card Footer: Model Provenance Details */}

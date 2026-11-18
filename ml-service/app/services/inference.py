@@ -25,6 +25,7 @@ from app.schemas.inference import (
     ActiveModelsResponse,
 )
 from app.schemas.market_data import CandleInput
+from app.services.explainability import PredictionExplainer
 from app.services.registry import (
     ModelRegistry,
     RegisteredInferenceModel,
@@ -75,6 +76,7 @@ class InferenceService:
         self.registry = ModelRegistry(registry_dir=self.registry_dir)
         self._active_models: Dict[int, RegisteredInferenceModel] = {}
         self._manifest_cache: Optional[Dict[str, Any]] = None
+        self.explainer = PredictionExplainer(top_n=5)
 
     def load_active_models(self, force_reload: bool = False) -> None:
         """
@@ -207,6 +209,14 @@ class InferenceService:
         pred_class_int = int(preds[0])
         pred_label = CLASS_INT_TO_LABEL.get(pred_class_int, DirectionalClass.NEUTRAL)
 
+        # Generate feature attributions
+        attributions = self.explainer.explain(
+            model=model,
+            X_df=X_df,
+            predicted_class=pred_class_int,
+            predicted_label=pred_label,
+        )
+
         # Build calibrated probability dictionary
         prob_dict: Dict[str, float] = {
             "DOWN": round(float(probs[0, 0]), 6),
@@ -234,6 +244,7 @@ class InferenceService:
             feature_schema_version=model.metadata.feature_schema_version,
             inference_timestamp_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
             execution_time_ms=execution_time_ms,
+            attributions=attributions,
         )
 
     def predict_multi_horizon(self, request: MultiHorizonPredictRequest) -> MultiHorizonPredictResponse:
@@ -265,6 +276,14 @@ class InferenceService:
             pred_class_int = int(preds[0])
             pred_label = CLASS_INT_TO_LABEL.get(pred_class_int, DirectionalClass.NEUTRAL)
 
+            # Generate feature attributions
+            attributions = self.explainer.explain(
+                model=model,
+                X_df=X_df,
+                predicted_class=pred_class_int,
+                predicted_label=pred_label,
+            )
+
             prob_dict: Dict[str, float] = {
                 "DOWN": round(float(probs[0, 0]), 6),
                 "NEUTRAL": round(float(probs[0, 1]), 6),
@@ -289,6 +308,7 @@ class InferenceService:
                 feature_schema_version=model.metadata.feature_schema_version,
                 inference_timestamp_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 execution_time_ms=exec_ms,
+                attributions=attributions,
             )
 
         t1 = time.perf_counter()

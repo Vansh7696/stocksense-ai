@@ -21,6 +21,7 @@ import { Card, Button, Badge, ErrorState } from '../ui';
 import HorizonPredictionCard from './HorizonPredictionCard';
 import ChampionModelManifestCard from './ChampionModelManifestCard';
 import PredictionSkeleton from './PredictionSkeleton';
+import FeatureAttributionCard from './FeatureAttributionCard';
 
 const HORIZON_TABS = [
   { id: 'all', label: 'All Horizons (1D, 3D, 5D)' },
@@ -340,6 +341,7 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
 
   const isCached = metaData?.cached ?? false;
   const horizonsList = Object.keys(predictions).sort((a, b) => Number(a) - Number(b));
+  const selectedAttributionPred = activeHorizon !== 'all' ? predictions[activeHorizon] : (predictions['1'] || Object.values(predictions)[0]);
 
   return (
     <div className="space-y-5">
@@ -435,6 +437,16 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
           return <HorizonPredictionCard key={hKey} prediction={pred} />;
         })}
       </div>
+
+      {/* Feature Attribution & Decision Transparency Section */}
+      {selectedAttributionPred?.attributions && selectedAttributionPred.attributions.length > 0 && (
+        <FeatureAttributionCard
+          attributions={selectedAttributionPred.attributions}
+          horizon={selectedAttributionPred.horizon}
+          predictedLabel={selectedAttributionPred.predictedLabel}
+          modelAlgorithm={selectedAttributionPred.model?.algorithm || 'Quantitative ML Model'}
+        />
+      )}
 
       {/* Champion Model Registry Manifest Metadata */}
       {activeModelsManifest && (

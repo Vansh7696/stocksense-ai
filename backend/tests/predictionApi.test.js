@@ -49,6 +49,16 @@ describe('Milestone 5C.6.1: Backend Prediction Controller & API Integration Suit
         feature_schema_version: '23_scale_invariant_technical_v1',
         inference_timestamp_utc: '2026-11-18T06:00:00Z',
         execution_time_ms: 3.42,
+        attributions: [
+          {
+            feature: 'rsi_14',
+            value: 68.5,
+            contribution: 0.342,
+            direction: 'UP',
+            display_name: 'RSI (14-period)',
+            description: 'RSI at 68.5 indicates strong bullish momentum.',
+          },
+        ],
       },
       3: {
         symbol: 'RELIANCE',
@@ -394,6 +404,9 @@ describe('Milestone 5C.6.1: Backend Prediction Controller & API Integration Suit
       assert.ok(preds['1'].probabilities.DOWN > 0);
       assert.ok(preds['1'].probabilities.NEUTRAL > 0);
       assert.ok(preds['1'].probabilities.UP > 0);
+      assert.ok(Array.isArray(preds['1'].attributions));
+      assert.equal(preds['1'].attributions[0].feature, 'rsi_14');
+      assert.equal(preds['1'].attributions[0].displayName, 'RSI (14-period)');
 
       // Verify statutory disclaimer
       assert.equal(res.body.data.disclaimer, PREDICTION_DISCLAIMER);
