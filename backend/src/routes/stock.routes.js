@@ -13,6 +13,7 @@ import {
   getStockPredictions,
   getActiveModelChampions,
 } from '../controllers/prediction.controller.js';
+import { getStockSentiment } from '../controllers/sentiment.controller.js';
 import { requireAuth } from '../middleware/auth.js';
 import { predictionRateLimiter } from '../middleware/authRateLimiter.js';
 
@@ -76,6 +77,16 @@ router.get(
   requireAuth,
   predictionRateLimiter,
   getStockPredictions
+);
+
+/**
+ * GET /api/stocks/:id/sentiment
+ * Retrieve real-time financial market news sentiment intelligence and multi-factor fusion metrics.
+ */
+router.get(
+  '/:id/sentiment',
+  requireAuth,
+  getStockSentiment
 );
 
 export default router;

@@ -16,12 +16,13 @@ import {
   Info,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getStockPredictions, getActiveModelChampions } from '../../services/api';
+import { getStockPredictions, getActiveModelChampions, getStockSentiment } from '../../services/api';
 import { Card, Button, Badge, ErrorState } from '../ui';
 import HorizonPredictionCard from './HorizonPredictionCard';
 import ChampionModelManifestCard from './ChampionModelManifestCard';
 import PredictionSkeleton from './PredictionSkeleton';
 import FeatureAttributionCard from './FeatureAttributionCard';
+import SentimentIntelligenceCard from '../sentiment/SentimentIntelligenceCard';
 
 const HORIZON_TABS = [
   { id: 'all', label: 'All Horizons (1D, 3D, 5D)' },
@@ -45,6 +46,7 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
   const [predictionsData, setPredictionsData] = useState(null);
   const [metaData, setMetaData] = useState(null);
   const [activeModelsManifest, setActiveModelsManifest] = useState(null);
+  const [sentimentData, setSentimentData] = useState(null);
 
   // Status & error states
   const [loading, setLoading] = useState(false);
@@ -58,7 +60,7 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
   const exchangeCode = selectedExchange || stock?.exchange?.code || 'NSE';
 
   /**
-   * Fetch multi-horizon predictions for the active stock
+   * Fetch multi-horizon predictions and sentiment for the active stock
    */
   const fetchPredictions = useCallback(
     async (overrideHorizon = null) => {
@@ -83,14 +85,24 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
       }
 
       try {
-        const response = await getStockPredictions(stock.id, queryParams, {
-          signal: controller.signal,
-        });
+        const horizonForSentiment = targetHorizon !== 'all' ? parseInt(targetHorizon, 10) : 1;
+        const [predRes, sentRes] = await Promise.allSettled([
+          getStockPredictions(stock.id, queryParams, { signal: controller.signal }),
+          getStockSentiment(stock.id, { exchange: exchangeCode, horizon: horizonForSentiment }, { signal: controller.signal }),
+        ]);
 
         // Ensure response belongs to the currently selected stock
         if (currentStockIdRef.current === stock.id) {
-          setPredictionsData(response?.data || null);
-          setMetaData(response?.meta || null);
+          if (predRes.status === 'fulfilled') {
+            setPredictionsData(predRes.value?.data || null);
+            setMetaData(predRes.value?.meta || null);
+          } else {
+            throw predRes.reason;
+          }
+
+          if (sentRes.status === 'fulfilled') {
+            setSentimentData(sentRes.value?.data || null);
+          }
         }
       } catch (err) {
         if (err?.isCanceled || err?.code === 'ERR_CANCELED') {
@@ -438,15 +450,21 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
         })}
       </div>
 
-      {/* Feature Attribution & Decision Transparency Section */}
-      {selectedAttributionPred?.attributions && selectedAttributionPred.attributions.length > 0 && (
-        <FeatureAttributionCard
-          attributions={selectedAttributionPred.attributions}
-          horizon={selectedAttributionPred.horizon}
-          predictedLabel={selectedAttributionPred.predictedLabel}
-          modelAlgorithm={selectedAttributionPred.model?.algorithm || 'Quantitative ML Model'}
-        />
-      )}
+      {/* Technical Explainability & Market News Sentiment Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {selectedAttributionPred?.attributions && selectedAttributionPred.attributions.length > 0 && (
+          <FeatureAttributionCard
+            attributions={selectedAttributionPred.attributions}
+            horizon={selectedAttributionPred.horizon}
+            predictedLabel={selectedAttributionPred.predictedLabel}
+            modelAlgorithm={selectedAttributionPred.model?.algorithm || 'Quantitative ML Model'}
+          />
+        )}
+
+        {sentimentData && (
+          <SentimentIntelligenceCard sentimentData={sentimentData} />
+        )}
+      </div>
 
       {/* Champion Model Registry Manifest Metadata */}
       {activeModelsManifest && (

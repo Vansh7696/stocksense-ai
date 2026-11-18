@@ -327,6 +327,71 @@ export class MLServiceClient {
       throw new AppError(`Failed to communicate with ML service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
     }
   }
+
+  /**
+   * Invokes Python FastAPI endpoint GET /api/sentiment/summary/{symbol}
+   *
+   * @param {string} symbol - Equity ticker
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async getSentimentSummary(symbol, options = {}) {
+    const encoded = encodeURIComponent(symbol.toUpperCase());
+    const url = `${this.baseUrl}/api/sentiment/summary/${encoded}`;
+    const headers = {};
+    if (options.correlationId) {
+      headers['X-Correlation-ID'] = options.correlationId;
+    }
+
+    try {
+      const response = await this.httpClient.get(url, {
+        headers,
+        timeout: options.timeout || this.timeout,
+      });
+      return response.data;
+    } catch (err) {
+      if (err.response) {
+        const detail = err.response.data?.detail || err.message;
+        throw new AppError(`ML sentiment service error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`, err.response.status || 500, 'ML_SENTIMENT_ERROR');
+      }
+      if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        throw new AppError(`ML sentiment service is unavailable at ${this.baseUrl}.`, 503, 'ML_SERVICE_UNAVAILABLE');
+      }
+      throw new AppError(`Failed to communicate with ML sentiment service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
+    }
+  }
+
+  /**
+   * Invokes Python FastAPI endpoint POST /api/sentiment/fuse
+   *
+   * @param {Object} payload
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async fusePredictionWithSentiment(payload, options = {}) {
+    const url = `${this.baseUrl}/api/sentiment/fuse`;
+    const headers = {};
+    if (options.correlationId) {
+      headers['X-Correlation-ID'] = options.correlationId;
+    }
+
+    try {
+      const response = await this.httpClient.post(url, payload, {
+        headers,
+        timeout: options.timeout || this.timeout,
+      });
+      return response.data;
+    } catch (err) {
+      if (err.response) {
+        const detail = err.response.data?.detail || err.message;
+        throw new AppError(`ML fusion error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`, err.response.status || 500, 'ML_FUSION_ERROR');
+      }
+      if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        throw new AppError(`ML service is unavailable at ${this.baseUrl}.`, 503, 'ML_SERVICE_UNAVAILABLE');
+      }
+      throw new AppError(`Failed to communicate with ML fusion service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
+    }
+  }
 }
 
 export default new MLServiceClient();

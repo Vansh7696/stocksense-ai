@@ -272,4 +272,22 @@ export async function getActiveModelChampions(options = {}) {
   return api.get('/stocks/predictions/models', options);
 }
 
+// -------------------------------------------------------------
+// Market Sentiment & Multi-Factor Intelligence (Phase 5C.9)
+// -------------------------------------------------------------
+
+/**
+ * Retrieve market news sentiment intelligence and multi-factor fusion metrics for a stock.
+ *
+ * @param {string} id Stock UUID, instrumentToken, or symbol.
+ * @param {Object} [params] Query parameters (exchange, horizon).
+ * @param {Object} [options] Request options (e.g. signal for AbortController).
+ */
+export async function getStockSentiment(id, params = {}, options = {}) {
+  return api.get(`/stocks/${encodeURIComponent(id)}/sentiment`, {
+    params,
+    ...options,
+  });
+}
+
 export default api;
