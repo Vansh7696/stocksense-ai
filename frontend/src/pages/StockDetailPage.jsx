@@ -27,6 +27,7 @@ import { addRecentlyViewed } from '../utils/watchlist';
 import { useWatchlist } from '../context/WatchlistContext';
 import { Card, Button, Badge, Skeleton, ErrorState, EmptyState } from '../components/ui';
 import CandlestickChart from '../components/charts/CandlestickChart';
+import { StockPredictionDashboard } from '../components/predictions';
 
 const INTERVAL_TABS = [
   { id: '1D', label: '1D', full: '1 Day', group: 'standard' },
@@ -658,6 +659,12 @@ export default function StockDetailPage() {
           </div>
         </Card>
       </div>
+
+      {/* Quantitative Multi-Horizon Predictions Dashboard (Milestone 5C.6.2) */}
+      <StockPredictionDashboard
+        stock={stock}
+        selectedExchange={exchangeParam || stock.exchange?.code}
+      />
 
       {/* Instrument Details & Institutional Identifiers */}
       <Card className="p-6 bg-fintech-surface/60 border-fintech-border/70">

@@ -84,6 +84,16 @@ api.interceptors.response.use(
       }
     }
 
+    if (axios.isCancel(error) || error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
+      const formattedCanceled = {
+        message: 'Request canceled',
+        code: 'ERR_CANCELED',
+        status: 0,
+        isCanceled: true,
+      };
+      return Promise.reject(formattedCanceled);
+    }
+
     const formattedError = {
       message: error.response?.data?.error?.message || error.message || 'An unexpected error occurred',
       code: error.response?.data?.error?.code || 'NETWORK_ERROR',
@@ -226,6 +236,33 @@ export async function getMarketOverview() {
  */
 export async function getMarketIndices() {
   return api.get('/market/indices');
+}
+
+// -------------------------------------------------------------
+// Quantitative Model Prediction Endpoints (Milestone 5C.6.1 / 5C.6.2)
+// -------------------------------------------------------------
+
+/**
+ * Retrieve multi-horizon quantitative ML predictions for a stock.
+ *
+ * @param {string} id Stock UUID, instrumentToken, or symbol.
+ * @param {Object} [params] Query parameters (exchange, horizon).
+ * @param {Object} [options] Request options (e.g. signal for AbortController).
+ */
+export async function getStockPredictions(id, params = {}, options = {}) {
+  return api.get(`/stocks/${encodeURIComponent(id)}/predictions`, {
+    params,
+    ...options,
+  });
+}
+
+/**
+ * Retrieve active champion prediction models manifest from the ML registry.
+ *
+ * @param {Object} [options] Request options (e.g. signal for AbortController).
+ */
+export async function getActiveModelChampions(options = {}) {
+  return api.get('/stocks/predictions/models', options);
 }
 
 export default api;
