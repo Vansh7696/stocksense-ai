@@ -154,6 +154,77 @@ export function validateCsrfSecret(secret, env) {
   return trimmed;
 }
 
+/**
+ * Validates production environment completeness and security postures.
+ * Enforces strong secrets, valid database URIs, explicit Redis endpoints, and strict CORS origins.
+ *
+ * @param {Record<string, string|undefined>} [envVars=process.env]
+ * @param {string} [targetEnv]
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+export function validateProductionEnvironment(envVars = process.env, targetEnv) {
+  const env = targetEnv !== undefined ? targetEnv : (envVars.NODE_ENV || 'development');
+  const errors = [];
+
+  if (env !== 'production') {
+    return { valid: true, errors: [] };
+  }
+
+  // 1. JWT Secret Validation
+  try {
+    validateJwtSecret(envVars.JWT_SECRET, 'production');
+  } catch (err) {
+    errors.push(err.message);
+  }
+
+  // 2. Application Encryption Key Validation
+  try {
+    validateAppEncryptionKey(envVars.APP_ENCRYPTION_KEY, 'production');
+  } catch (err) {
+    errors.push(err.message);
+  }
+
+  // 3. CSRF Secret Validation
+  try {
+    validateCsrfSecret(envVars.CSRF_SECRET, 'production');
+  } catch (err) {
+    errors.push(err.message);
+  }
+
+  // 4. Database URL Validation
+  const dbUrl = envVars.DATABASE_URL;
+  if (!dbUrl || typeof dbUrl !== 'string' || dbUrl.trim().length === 0) {
+    errors.push('DATABASE_URL environment variable is mandatory in production.');
+  } else if (!dbUrl.startsWith('postgresql://') && !dbUrl.startsWith('postgres://')) {
+    errors.push('DATABASE_URL must be a valid postgresql:// connection URI.');
+  } else if (dbUrl.includes('postgres:postgres@') || dbUrl.includes('root:root@')) {
+    errors.push('DATABASE_URL must not use default or trivial credentials (postgres:postgres) in production.');
+  }
+
+  // 5. Redis URL Validation
+  const redisUrl = envVars.REDIS_URL;
+  if (!redisUrl || typeof redisUrl !== 'string' || redisUrl.trim().length === 0) {
+    errors.push('REDIS_URL environment variable is mandatory in production.');
+  } else if (!redisUrl.startsWith('redis://') && !redisUrl.startsWith('rediss://')) {
+    errors.push('REDIS_URL must begin with redis:// or rediss:// protocol.');
+  }
+
+  // 6. CORS Origin Security Validation
+  const corsOrigin = envVars.CORS_ORIGIN;
+  if (!corsOrigin || corsOrigin.trim() === '*' || corsOrigin.includes('*')) {
+    errors.push('CORS_ORIGIN cannot be a wildcard (*) in production environments.');
+  }
+
+  if (errors.length > 0) {
+    const errorMsg = `Production environment configuration validation failed:\n  - ${errors.join('\n  - ')}`;
+    const err = new Error(errorMsg);
+    err.validationErrors = errors;
+    throw err;
+  }
+
+  return { valid: true, errors: [] };
+}
+
 const currentEnv = process.env.NODE_ENV || 'development';
 
 export const config = {

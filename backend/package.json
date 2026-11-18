@@ -13,6 +13,7 @@
     "prisma:seed": "node prisma/seed.js",
     "ingest:instruments": "node scripts/ingestInstruments.js",
     "ingest:historical": "node scripts/ingestHistorical.js",
+    "worker": "START_WORKER=true node src/workers/workerRunner.js",
     "test": "NODE_ENV=test node --test --test-concurrency=1 --test-force-exit tests/**/*.test.js"
   },
   "keywords": [
@@ -31,6 +32,7 @@
     "argon2": "^0.45.2",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
+    "bullmq": "^6.7.7",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

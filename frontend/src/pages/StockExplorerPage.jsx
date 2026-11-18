@@ -30,6 +30,7 @@ import {
   EmptyState,
   ErrorState,
 } from '../components/ui';
+import MarketScreener from '../components/screener/MarketScreener';
 
 const ALLOWED_EXCHANGES = ['ALL', 'NSE', 'BSE'];
 const ALLOWED_INSTRUMENT_TYPES = ['ALL', 'EQUITY', 'INDEX', 'FUTURES', 'OPTIONS', 'BOND'];
@@ -64,6 +65,7 @@ export default function StockExplorerPage() {
   const [sortOrder, setSortOrder] = useState(initialSortOrder);
   const [page, setPage] = useState(isNaN(initialPage) || initialPage < 1 ? 1 : initialPage);
   const [limit, setLimit] = useState(PAGE_SIZES.includes(initialLimit) ? initialLimit : 20);
+  const [viewMode, setViewMode] = useState(searchParams.get('view') === 'screener' ? 'screener' : 'catalog');
 
   // Data & Request states
   const [stocks, setStocks] = useState([]);
@@ -272,8 +274,43 @@ export default function StockExplorerPage() {
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* 2. Search & Filter Controls Bar                               */}
+      {/* View Switcher: Catalog vs AI Market Screener                  */}
       {/* ------------------------------------------------------------- */}
+      <div className="flex items-center gap-2 border-b border-fintech-border/50 pb-2">
+        <button
+          onClick={() => setViewMode('catalog')}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            viewMode === 'catalog'
+              ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-sm'
+              : 'text-fintech-muted hover:text-white hover:bg-fintech-surface'
+          }`}
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          Catalog Directory
+        </button>
+
+        <button
+          onClick={() => setViewMode('screener')}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            viewMode === 'screener'
+              ? 'bg-purple-600/20 text-purple-300 border border-purple-500/40 shadow-sm'
+              : 'text-fintech-muted hover:text-white hover:bg-fintech-surface'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5 text-purple-400" />
+          AI Market Screener
+          <Badge variant="cyan" size="xs">Intelligent</Badge>
+        </button>
+      </div>
+
+      {/* Render Screener View */}
+      {viewMode === 'screener' ? (
+        <MarketScreener stocks={stocks} loading={loading} />
+      ) : (
+        <>
+          {/* ------------------------------------------------------------- */}
+          {/* 2. Search & Filter Controls Bar                               */}
+          {/* ------------------------------------------------------------- */}
       <Card padding="md">
         <div className="flex flex-col gap-4">
           {/* Top Row: Search Input */}
@@ -650,6 +687,8 @@ export default function StockExplorerPage() {
             </div>
           )}
         </Card>
+      )}
+      </>
       )}
     </div>
   );

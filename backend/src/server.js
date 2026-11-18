@@ -1,5 +1,5 @@
 import app from './app.js';
-import { config } from './config/index.js';
+import { config, validateProductionEnvironment } from './config/index.js';
 import redisClient from './config/redis.js';
 import prisma from './config/prisma.js';
 import { initializeDatabase } from './utils/dbInit.js';
@@ -10,6 +10,18 @@ const PORT = config.port;
 let server;
 
 async function startServer() {
+  // Validate production environment integrity before binding ports
+  if (config.env === 'production') {
+    try {
+      validateProductionEnvironment();
+    } catch (err) {
+      logger.error('Fatal startup configuration error: Production environment invalid', {
+        errors: err.validationErrors || [err.message],
+      });
+      process.exit(1);
+    }
+  }
+
   try {
     if (config.database?.url) {
       await initializeDatabase({ throwOnFailure: config.env === 'production' });

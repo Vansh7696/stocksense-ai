@@ -18,6 +18,18 @@ class MLMetricsRegistry:
         # Key: (horizon,) -> list of latencies in seconds (FIFO circular buffer)
         self.latencies: Dict[int, List[float]] = {}
         self.max_latency_samples = 1000
+        # Key: feature_name -> { "psi": float, "status": str, "missing_ratio": float, "updated_at": float }
+        self.drift_metrics: Dict[str, Dict[str, Any]] = {}
+
+    def record_feature_drift(
+        self, feature: str, psi: float, status: str, missing_ratio: float = 0.0
+    ) -> None:
+        self.drift_metrics[feature] = {
+            "psi": round(float(psi), 4),
+            "status": status,
+            "missing_ratio": round(float(missing_ratio), 4),
+            "updated_at": time.time(),
+        }
 
     def record_inference(self, model_id: str, horizon: int, status: str, duration_seconds: float) -> None:
         key = (model_id, horizon, status)
@@ -78,6 +90,24 @@ class MLMetricsRegistry:
             lines.append(f'ml_inference_duration_seconds{{horizon="{horizon}",quantile="0.99"}} {p["p99"]}')
             lines.append(f'ml_inference_duration_seconds_count{{horizon="{horizon}"}} {p["count"]}')
 
+        if self.drift_metrics:
+            lines.append("# HELP ml_feature_drift_psi Population Stability Index (PSI) drift metric for model features.")
+            lines.append("# TYPE ml_feature_drift_psi gauge")
+            status_map = {"STABLE": 0, "MODERATE_DRIFT": 1, "SIGNIFICANT_DRIFT": 2}
+            for feat, d in self.drift_metrics.items():
+                lines.append(f'ml_feature_drift_psi{{feature="{feat}"}} {d["psi"]}')
+
+            lines.append("# HELP ml_feature_drift_status Feature drift severity category (0=STABLE, 1=MODERATE, 2=SIGNIFICANT).")
+            lines.append("# TYPE ml_feature_drift_status gauge")
+            for feat, d in self.drift_metrics.items():
+                code = status_map.get(d["status"], 0)
+                lines.append(f'ml_feature_drift_status{{feature="{feat}"}} {code}')
+
+            lines.append("# HELP ml_feature_missing_ratio Ratio of missing or NaN values observed for feature.")
+            lines.append("# TYPE ml_feature_missing_ratio gauge")
+            for feat, d in self.drift_metrics.items():
+                lines.append(f'ml_feature_missing_ratio{{feature="{feat}"}} {d["missing_ratio"]}')
+
         return "\n".join(lines) + "\n"
 
     def to_json_snapshot(self, loaded_models_count: int = 0) -> Dict[str, Any]:
@@ -92,12 +122,14 @@ class MLMetricsRegistry:
                 {"status": k, "count": v} for k, v in self.indicator_requests.items()
             ],
             "latencies_by_horizon": {h: self.get_percentiles(h) for h in [1, 3, 5]},
+            "feature_drift": self.drift_metrics,
         }
 
     def reset(self) -> None:
         self.inference_requests.clear()
         self.indicator_requests.clear()
         self.latencies.clear()
+        self.drift_metrics.clear()
 
 
 ml_telemetry = MLMetricsRegistry()

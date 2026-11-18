@@ -248,3 +248,38 @@ export async function predictionRateLimiter(req, res, next) {
     next();
   }
 }
+
+/**
+ * Analytics API Rate Limiter: Max 30 requests per 1 minute per authenticated User/IP.
+ * Protects compute-intensive sentiment and technical pattern analysis endpoints.
+ * Fails open if Redis is unavailable to avoid blocking legitimate user queries.
+ */
+export async function analyticsRateLimiter(req, res, next) {
+  if (!isRedisReady()) {
+    return next();
+  }
+
+  const userId = req.user?.id || req.user?.userId;
+  const identifier = userId ? `user:${userId}` : `ip:${getClientIp(req)}`;
+  const key = `stocksense:ratelimit:analytics:${identifier}`;
+  const windowSec = 60; // 1 minute window
+  const maxAttempts = 30; // 30 requests per minute
+
+  try {
+    const { count, ttl } = await atomicIncrement(key, windowSec);
+    if (count > maxAttempts) {
+      res.setHeader('Retry-After', String(ttl));
+      return next(
+        new AppError(
+          `Analytics rate limit exceeded. You may make up to ${maxAttempts} analytics requests per minute. Please try again in ${ttl} seconds.`,
+          429,
+          'TOO_MANY_ANALYTICS_REQUESTS'
+        )
+      );
+    }
+    next();
+  } catch {
+    // Fail open on Redis errors
+    next();
+  }
+}

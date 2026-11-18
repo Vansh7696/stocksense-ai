@@ -19,6 +19,7 @@ from app.api.inference import router as inference_router
 from app.api.metrics import router as metrics_router
 from app.api.sentiment import router as sentiment_router
 from app.api.patterns import router as patterns_router
+from app.api.monitoring import router as monitoring_router
 
 # Initialize centralized structured logging
 setup_logging(is_production=(settings.env == "production"))
@@ -71,6 +72,7 @@ app.include_router(targets_router, prefix="/api")
 app.include_router(inference_router, prefix="/api")
 app.include_router(sentiment_router)
 app.include_router(patterns_router)
+app.include_router(monitoring_router)
 app.include_router(metrics_router, prefix="/api")
 app.include_router(metrics_router)  # Also expose /metrics at root for Prometheus scraper
 

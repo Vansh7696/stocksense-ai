@@ -16,7 +16,10 @@ import {
 import { getStockSentiment } from '../controllers/sentiment.controller.js';
 import { getStockPatterns } from '../controllers/pattern.controller.js';
 import { requireAuth } from '../middleware/auth.js';
-import { predictionRateLimiter } from '../middleware/authRateLimiter.js';
+import {
+  predictionRateLimiter,
+  analyticsRateLimiter,
+} from '../middleware/authRateLimiter.js';
 
 const router = Router();
 
@@ -87,6 +90,7 @@ router.get(
 router.get(
   '/:id/sentiment',
   requireAuth,
+  analyticsRateLimiter,
   getStockSentiment
 );
 
@@ -97,6 +101,7 @@ router.get(
 router.get(
   '/:id/patterns',
   requireAuth,
+  analyticsRateLimiter,
   getStockPatterns
 );
 

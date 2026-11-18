@@ -508,8 +508,98 @@ export default function DashboardPage() {
       </div>
 
       {/* ----------------------------------------------------------------- */}
-      {/* 5. Verified Database Equities Sample Preview                       */}
+      {/* 4.5 AI Market Intelligence Screener Spotlight                     */}
       {/* ----------------------------------------------------------------- */}
+      <Card className="p-5 bg-gradient-to-r from-blue-950/40 via-purple-950/30 to-fintech-card border border-purple-500/30 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-fintech-border/50">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                <TrendingUp className="w-4 h-4 text-purple-400" />
+              </span>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                AI Market Intelligence & Screener Spotlight
+              </h2>
+              <Badge variant="cyan" size="xs">Phase 6D</Badge>
+            </div>
+            <p className="text-xs text-fintech-muted mt-1">
+              Multi-horizon forecasts (T+1, T+3, T+5) fused with financial sentiment and candlestick pattern setups.
+            </p>
+          </div>
+
+          <Link to="/stocks?view=screener">
+            <Button variant="primary" size="sm" icon={ArrowRight} iconPosition="right" className="bg-purple-600 hover:bg-purple-500 text-white shadow-md">
+              Launch Full Screener
+            </Button>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-4">
+          <div
+            onClick={() => navigate('/stocks?search=RELIANCE')}
+            className="p-3.5 rounded-xl bg-fintech-surface/80 border border-fintech-border hover:border-purple-500/50 cursor-pointer transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-sm text-white group-hover:text-purple-300 transition-colors">RELIANCE</span>
+              <Badge variant="success" size="xs">BULLISH 72%</Badge>
+            </div>
+            <div className="mt-2 text-xs space-y-1 text-fintech-muted">
+              <div className="flex justify-between">
+                <span>Pattern:</span>
+                <span className="text-indigo-300 font-medium">Bullish Engulfing</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Sentiment:</span>
+                <span className="text-emerald-400 font-medium">+0.42 (Bullish)</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => navigate('/stocks?search=TCS')}
+            className="p-3.5 rounded-xl bg-fintech-surface/80 border border-fintech-border hover:border-purple-500/50 cursor-pointer transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-sm text-white group-hover:text-purple-300 transition-colors">TCS</span>
+              <Badge variant="secondary" size="xs">NEUTRAL 65%</Badge>
+            </div>
+            <div className="mt-2 text-xs space-y-1 text-fintech-muted">
+              <div className="flex justify-between">
+                <span>Pattern:</span>
+                <span className="text-indigo-300 font-medium">Consolidation S/R</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Sentiment:</span>
+                <span className="text-slate-300 font-medium">+0.08 (Balanced)</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => navigate('/stocks?search=INFY')}
+            className="p-3.5 rounded-xl bg-fintech-surface/80 border border-fintech-border hover:border-purple-500/50 cursor-pointer transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-sm text-white group-hover:text-purple-300 transition-colors">INFY</span>
+              <Badge variant="success" size="xs">BULLISH 68%</Badge>
+            </div>
+            <div className="mt-2 text-xs space-y-1 text-fintech-muted">
+              <div className="flex justify-between">
+                <span>Pattern:</span>
+                <span className="text-indigo-300 font-medium">Breakout Alert</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Sentiment:</span>
+                <span className="text-emerald-400 font-medium">+0.31 (Bullish)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 5. Verified Database Equities Sample Preview                       */}
+      {/* ------------------------------------------------------------- */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <div>
