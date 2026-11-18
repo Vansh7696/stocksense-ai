@@ -14,6 +14,7 @@ import {
   getActiveModelChampions,
 } from '../controllers/prediction.controller.js';
 import { getStockSentiment } from '../controllers/sentiment.controller.js';
+import { getStockPatterns } from '../controllers/pattern.controller.js';
 import { requireAuth } from '../middleware/auth.js';
 import { predictionRateLimiter } from '../middleware/authRateLimiter.js';
 
@@ -87,6 +88,16 @@ router.get(
   '/:id/sentiment',
   requireAuth,
   getStockSentiment
+);
+
+/**
+ * GET /api/stocks/:id/patterns
+ * Retrieve candlestick patterns, support/resistance zones, and breakout momentum signals.
+ */
+router.get(
+  '/:id/patterns',
+  requireAuth,
+  getStockPatterns
 );
 
 export default router;

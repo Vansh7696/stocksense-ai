@@ -392,6 +392,51 @@ export class MLServiceClient {
       throw new AppError(`Failed to communicate with ML fusion service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
     }
   }
+
+  /**
+   * Invokes Python FastAPI endpoint POST /api/patterns/analyze
+   *
+   * @param {Array<Object>} candles - Historical OHLCV candle records
+   * @param {string} [symbol] - Instrument ticker
+   * @param {Object} [options]
+   * @returns {Promise<Object>}
+   */
+  async analyzeTechnicalPatterns(candles, symbol = 'UNKNOWN', options = {}) {
+    const formattedCandles = this.formatCandlesForML(candles);
+    const url = `${this.baseUrl}/api/patterns/analyze`;
+    const headers = {};
+    if (options.correlationId) {
+      headers['X-Correlation-ID'] = options.correlationId;
+    }
+
+    try {
+      const response = await this.httpClient.post(
+        url,
+        {
+          candles: formattedCandles,
+          symbol,
+        },
+        {
+          headers,
+          timeout: options.timeout || this.timeout,
+        }
+      );
+      return response.data;
+    } catch (err) {
+      if (err.response) {
+        const detail = err.response.data?.detail || err.message;
+        throw new AppError(
+          `ML technical pattern analysis error: ${typeof detail === 'object' ? JSON.stringify(detail) : detail}`,
+          err.response.status || 500,
+          'ML_PATTERN_ERROR'
+        );
+      }
+      if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        throw new AppError(`ML pattern service is unavailable at ${this.baseUrl}.`, 503, 'ML_SERVICE_UNAVAILABLE');
+      }
+      throw new AppError(`Failed to communicate with ML pattern service: ${err.message}`, 502, 'ML_SERVICE_COMMUNICATION_ERROR');
+    }
+  }
 }
 
 export default new MLServiceClient();

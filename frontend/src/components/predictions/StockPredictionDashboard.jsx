@@ -16,13 +16,19 @@ import {
   Info,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getStockPredictions, getActiveModelChampions, getStockSentiment } from '../../services/api';
+import {
+  getStockPredictions,
+  getActiveModelChampions,
+  getStockSentiment,
+  getStockPatterns,
+} from '../../services/api';
 import { Card, Button, Badge, ErrorState } from '../ui';
 import HorizonPredictionCard from './HorizonPredictionCard';
 import ChampionModelManifestCard from './ChampionModelManifestCard';
 import PredictionSkeleton from './PredictionSkeleton';
 import FeatureAttributionCard from './FeatureAttributionCard';
 import SentimentIntelligenceCard from '../sentiment/SentimentIntelligenceCard';
+import TechnicalPatternsCard from '../patterns/TechnicalPatternsCard';
 
 const HORIZON_TABS = [
   { id: 'all', label: 'All Horizons (1D, 3D, 5D)' },
@@ -47,6 +53,7 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
   const [metaData, setMetaData] = useState(null);
   const [activeModelsManifest, setActiveModelsManifest] = useState(null);
   const [sentimentData, setSentimentData] = useState(null);
+  const [patternData, setPatternData] = useState(null);
 
   // Status & error states
   const [loading, setLoading] = useState(false);
@@ -60,7 +67,7 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
   const exchangeCode = selectedExchange || stock?.exchange?.code || 'NSE';
 
   /**
-   * Fetch multi-horizon predictions and sentiment for the active stock
+   * Fetch multi-horizon predictions, sentiment, and technical patterns for the active stock
    */
   const fetchPredictions = useCallback(
     async (overrideHorizon = null) => {
@@ -86,9 +93,10 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
 
       try {
         const horizonForSentiment = targetHorizon !== 'all' ? parseInt(targetHorizon, 10) : 1;
-        const [predRes, sentRes] = await Promise.allSettled([
+        const [predRes, sentRes, patRes] = await Promise.allSettled([
           getStockPredictions(stock.id, queryParams, { signal: controller.signal }),
           getStockSentiment(stock.id, { exchange: exchangeCode, horizon: horizonForSentiment }, { signal: controller.signal }),
+          getStockPatterns(stock.id, { exchange: exchangeCode, interval: '1D' }, { signal: controller.signal }),
         ]);
 
         // Ensure response belongs to the currently selected stock
@@ -102,6 +110,10 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
 
           if (sentRes.status === 'fulfilled') {
             setSentimentData(sentRes.value?.data || null);
+          }
+
+          if (patRes.status === 'fulfilled') {
+            setPatternData(patRes.value?.data || null);
           }
         }
       } catch (err) {
@@ -465,6 +477,15 @@ export default function StockPredictionDashboard({ stock, selectedExchange }) {
           <SentimentIntelligenceCard sentimentData={sentimentData} />
         )}
       </div>
+
+      {/* Advanced Candlestick Pattern Recognition, S/R Zones & Breakout Signals */}
+      {patternData && (
+        <TechnicalPatternsCard
+          patternData={patternData}
+          symbol={stock?.symbol || 'STOCK'}
+          selectedExchange={exchangeCode}
+        />
+      )}
 
       {/* Champion Model Registry Manifest Metadata */}
       {activeModelsManifest && (

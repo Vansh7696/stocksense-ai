@@ -290,4 +290,22 @@ export async function getStockSentiment(id, params = {}, options = {}) {
   });
 }
 
+// -------------------------------------------------------------
+// Technical Analysis & Pattern Recognition (Phase 5C.10)
+// -------------------------------------------------------------
+
+/**
+ * Retrieve candlestick patterns, S/R zones, and breakout momentum signals for a stock.
+ *
+ * @param {string} id Stock UUID, instrumentToken, or symbol.
+ * @param {Object} [params] Query parameters (exchange, interval).
+ * @param {Object} [options] Request options (e.g. signal for AbortController).
+ */
+export async function getStockPatterns(id, params = {}, options = {}) {
+  return api.get(`/stocks/${encodeURIComponent(id)}/patterns`, {
+    params,
+    ...options,
+  });
+}
+
 export default api;
